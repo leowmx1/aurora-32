@@ -14,7 +14,13 @@
     ram[{inner_addr: u24}] => 0x01 @ inner_addr`24
     sp[{inner_addr: u24}] => 0x02 @ inner_addr`24
 }
-
+#subruledef cond
+{
+	c => 0x1
+    z => 0x2
+    nc => 0x3
+	nz => 0x4
+}
 #ruledef
 {
 	NOP => 0x00000000
@@ -46,13 +52,12 @@
 	CMP r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x02F
 
 	JMP {addr: u32} => 0x00000030 @ addr`32
-	JPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0031
-	JC {addr: u32} => 0x00000032 @ addr`32
-	JZ {addr: u32} => 0x00000033 @ addr`32
-	JNC {addr: u32} => 0x00000034 @ addr`32
-	JNZ {addr: u32} => 0x00000035 @ addr`32
-	CALL r{reg_p: u4}, {addr: src} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x36 @ addr`32
-	RET r{reg_p: u4} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x37
+	JCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32
+	JPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032
+	JRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033
+	CALL r{reg_p: u4}, {addr: u32} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x34 @ addr`32
+	CAC {cond_c: cond}, r{reg_p: u4}, {addr: u32} => 0x00 @ cond_c`4 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x35 @ addr`32
+	RET r{reg_p: u4} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x36
 
 	HALT => 0x000000F0
 }
@@ -69,6 +74,7 @@ STR r9, ram[0x000003]
 LDI r9, 0x99346FBC
 STR r9, ram[0x000004]
 
+LDA r15, sp[0x000000]
 LDA r10, ram[0x000000]
 LDA r11, ram[0x000004]
 JMP loop
@@ -78,11 +84,9 @@ loop:
 	INC r10, r10
 	ILD r1, r10
 	CMP r1, r0
-	JC swap
-	JMP after_swap
-after_swap:
+	CAC c, r15, swap
 	CMP r10, r11
-	JZ next_round
+	CAC z, r15, next_round
 	JMP loop
 swap:
 	IST r0, r10
@@ -90,13 +94,13 @@ swap:
 	IST r1, r10
 	INC r10, r10
 	INC r12, r12
-	JMP after_swap
+	ret r15
 next_round:
 	CMP r12, r13
-	JZ end
+	JCC z, end
 	LDA r10, ram[0x000000]
 	LDI r12, 0x00000000
-	JMP loop
+	RET r15
 end:
 	HALT
 	
