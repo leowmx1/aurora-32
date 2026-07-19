@@ -25,6 +25,8 @@
 	LDR r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x13 @ addr`32
 	STR r{reg_a: u4}, {addr: src} => 0x000 @ reg_a`4 @ 0x00 @ 0x14 @ addr`32
 	LDI r{reg_w: u4}, {value: u32} => 0x00000 @ reg_w`4 @ 0x15 @ value`32
+	LDA r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32
+	LDO r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x17
 
 	ADD r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x20
 	SUB r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x21
@@ -57,9 +59,9 @@
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
 ;setup
-LDI r10, 0x01000000
-LDI r11, 0x0100FFFF
-LDI r12, 0x00000060
+LDA r10, ram[0x000000]
+LDA r11, ram[0x00FFFF]
+LDA r12, rom[0x000060]
 LDI r13, 0x00000003
 LDI r14, 0x00000000
 
@@ -68,8 +70,7 @@ loop:
 	CMP r11, r10
 	JC end
 	REM r14, r13, r15
-	ADD r12, r15, r9
-	ILD r0, r9
+	LDO r12, r15, r0
 	IST r0, r10
 	INC r10, r10
 	INC r14, r14
