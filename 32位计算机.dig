@@ -505,7 +505,7 @@
           <int>70</int>
         </entry>
       </elementAttributes>
-      <pos x="120" y="-180"/>
+      <pos x="140" y="-200"/>
     </visualElement>
     <visualElement>
       <elementName>Register</elementName>
@@ -861,7 +861,7 @@
         </entry>
         <entry>
           <string>Frequency</string>
-          <int>65536000</int>
+          <int>65536</int>
         </entry>
       </elementAttributes>
       <pos x="-240" y="-260"/>
@@ -1380,11 +1380,11 @@
         </entry>
         <entry>
           <string>Data</string>
-          <data>915,8f5a371c,90014,1000000,915,a63f778e,90014,1000001,915,7349bc73
-,90014,1000002,915,13131313,90014,1000003,915,99346fbc,90014,1000004
-,f16,2000000,a16,1000000,b16,1000004,30,1c,a011,a0a22,a111,1002f
-,1f0f35,27,ab02f,2f0f35,2d,30,1c,a012,a0a23,1a012,a0a22,c0c22
-,f0f36,cd02f,200031,35,a16,1000000,c15,0,f0f36,f0</data>
+          <data>f16,2000000,15,91919191,315,41c64e6d,415,3039,515,10,113,1000000
+,1002f,200031,1f,1f0f35,1a,3f0f35,15,30,a,a15,bbbbbbbb,a0014,1000001
+,f0f36,a15,aaaaaaaa,a0014,1000001,f0f36,a15,ffffffff,a0014,1000001
+,b0b22,b0014,1000002,115,0,10014,1000000,f0f34,2e,30,a,30024,4020
+,5026,f0f36</data>
         </entry>
         <entry>
           <string>intFormat</string>
