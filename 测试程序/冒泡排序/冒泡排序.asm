@@ -55,9 +55,12 @@
 	JCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32
 	JPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032
 	JRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033
-	CALL r{reg_p: u4}, {addr: u32} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x34 @ addr`32
-	CAC {cond_c: cond}, r{reg_p: u4}, {addr: u32} => 0x00 @ cond_c`4 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x35 @ addr`32
-	RET r{reg_p: u4} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x36
+	CALL {addr: u32} => 0x000000 @ 0x34 @ addr`32
+	CAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32
+	RET => 0x00000036
+	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0037
+	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x38
+	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0039
 
 	HALT => 0x000000F0
 }
@@ -75,6 +78,7 @@ LDI r9, 0x99346FBC
 STR r9, ram[0x000004]
 
 LDA r15, sp[0x000000]
+LSP r15
 LDA r10, ram[0x000000]
 LDA r11, ram[0x000004]
 JMP loop
@@ -84,9 +88,9 @@ loop:
 	INC r10, r10
 	ILD r1, r10
 	CMP r1, r0
-	CAC c, r15, swap
+	CAC c, swap
 	CMP r10, r11
-	CAC z, r15, next_round
+	CAC z, next_round
 	JMP loop
 swap:
 	IST r0, r10
@@ -94,13 +98,13 @@ swap:
 	IST r1, r10
 	INC r10, r10
 	INC r12, r12
-	ret r15
+	RET
 next_round:
 	CMP r12, r13
 	JCC z, end
 	LDA r10, ram[0x000000]
 	LDI r12, 0x00000000
-	RET r15
+	RET
 end:
 	HALT
 	

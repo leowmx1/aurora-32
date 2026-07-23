@@ -55,15 +55,19 @@
 	JCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32
 	JPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032
 	JRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033
-	CALL r{reg_p: u4}, {addr: u32} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x34 @ addr`32
-	CAC {cond_c: cond}, r{reg_p: u4}, {addr: u32} => 0x00 @ cond_c`4 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x35 @ addr`32
-	RET r{reg_p: u4} => 0x000 @ reg_p`4 @ 0x0 @ reg_p`4 @ 0x36
+	CALL {addr: u32} => 0x000000 @ 0x34 @ addr`32
+	CAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32
+	RET => 0x00000036
+	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0037
+	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x38
+	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0039
 
 	HALT => 0x000000F0
 }
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
 LDA r15, sp[0x000000]
+LSP r15
 LDI r0, 0x91919191
 LDI r3, 0x41C64E6D
 LDI r4, 0x00003039
@@ -72,17 +76,17 @@ loop:
 	LDR r1, ram[0x000000]
 	CMP r1, r0
 	JCC z, success
-	CAC c, r15, smaller
-	CAC nc, r15, bigger
+	CAC c, smaller
+	CAC nc, bigger
 	JMP loop
 bigger:
 	LDI r10, 0xBBBBBBBB
 	STR r10, ram[0x000001]
-	RET r15
+	RET
 smaller:
 	LDI r10, 0xAAAAAAAA
 	STR r10, ram[0x000001]
-	RET r15
+	RET
 success:
 	LDI r10, 0xFFFFFFFF
 	STR r10, ram[0x000001]
@@ -90,10 +94,10 @@ success:
 	STR r11, ram[0x000002]
 	LDI r1, 0x00000000
 	STR r1, ram[0x000000]
-	CALL r15, random
+	CALL random
 	JMP loop
 random:
 	MUL r3, r0, r0
 	ADD r0, r4, r0
 	REM r0, r5, r0
-	RET r15
+	RET
