@@ -1,31 +1,35 @@
 #!/usr/bin/env python3
 """
-微码控制字解析 / 生成工具（26 位）
+微码控制字解析 / 生成工具（28 位）
 用法：
   python ucode_tool.py
   进入交互后：
     · 默认模式 1：输入 hex → 输出信号（支持长串自动切分）
     · 输入 mode 2 切换到模式 2：输入信号列表 → 输出 hex
+        支持多组输入，用 / 分隔，例如：ENDCYCLE,OE_MDREXT,WE / OE_Ra,LD_Rw
+        输出不含 0x 前缀，每组一行。
     · 输入 q 退出
 """
 
 BITS = {
-    25: "ENDCYCLE",
-    24: "CONDJMP",
-    23: "ALUMODE3",
-    22: "ALUMODE2",
-    21: "ALUMODE1",
-    20: "ALUMODE0",
-    19: "WE",
-    18: "OE",
-    17: "INC_PC",
-    16: "OE_ALU",
-    15: "OE_Rb",
-    14: "OE_Ra",
-    13: "OE_MDREXT",
-    12: "OE_MDRINT",
-    11: "OE_PC",
-    10: "OE_SP",
+    27: "ENDCYCLE",
+    26: "CONDJMP",
+    25: "ALUMODE3",
+    24: "ALUMODE2",
+    23: "ALUMODE1",
+    22: "ALUMODE0",
+    21: "WE",
+    20: "OE",
+    19: "INC_PC",
+    18: "OE_ALU",
+    17: "OE_RFlags",
+    16: "OE_Rb",
+    15: "OE_Ra",
+    14: "OE_MDREXT",
+    13: "OE_MDRINT",
+    12: "OE_PC",
+    11: "OE_SP",
+    10: "LD_RFlags_Bus",
     9:  "LD_RFlags",
     8:  "LD_Rw",
     7:  "LD_IR",
@@ -43,21 +47,23 @@ def hex_to_signals(hex_str):
     val = int(hex_str, 16)
     signals = []
     alumode_val = 0
-    for bit in range(26):
+    for bit in range(28):
         if (val >> bit) & 1:
-            name = BITS[bit]
-            if 20 <= bit <= 23:
-                alumode_val |= (1 << (bit - 20))
+            name = BITS.get(bit)
+            if name is None:
+                continue
+            if 22 <= bit <= 25:          # ALUMODE 位
+                alumode_val |= (1 << (bit - 22))
             else:
                 signals.append(name)
     signals.append(f"ALUMODE={alumode_val}")
     return ", ".join(signals)
 
 def signals_to_hex(signal_str):
-    """信号列表 → 7 位 hex（不指定 ALUMODE 时默认为 15）"""
+    """信号列表 → 7 位 hex 字符串（不含 0x 前缀）"""
     signals = [s.strip() for s in signal_str.split(",") if s.strip()]
     val = 0
-    alumode = 15          # ★ 默认 15
+    alumode = 15          # 默认 15
     for sig in signals:
         if sig.upper().startswith("ALUMODE="):
             alumode = int(sig.split("=")[1])
@@ -70,10 +76,10 @@ def signals_to_hex(signal_str):
                     break
             if not found:
                 print(f"⚠ 未知信号 '{sig}'，已忽略")
-    # 清除原 ALUMODE 位，设置新值
-    val &= ~(0xF << 20)
-    val |= (alumode & 0xF) << 20
-    return f"0x{val:07X}"
+    # 设置 ALUMODE
+    val &= ~(0xF << 22)
+    val |= (alumode & 0xF) << 22
+    return f"{val:07X}"
 
 def split_hex(raw: str):
     """去掉空白，按 7 位一组切分，过滤长度不足 7 的片段"""
@@ -87,7 +93,7 @@ def split_hex(raw: str):
 
 def main():
     mode = 1
-    print("微码控制字工具 (26位) | mode 1/2 切换 | q 退出")
+    print("微码控制字工具 (28位) | mode 1/2 切换 | q 退出")
     print(f"[模式 {mode}] hex → 信号")
 
     while True:
@@ -124,8 +130,11 @@ def main():
                 except ValueError:
                     print(f"❌ 非法 hex: {h}")
         else:
-            hex_val = signals_to_hex(user)
-            print(hex_val)
+            # 模式 2：支持多组信号，用 / 分隔
+            groups = user.split("/")
+            for g in groups:
+                hex_val = signals_to_hex(g.strip())
+                print(hex_val)
 
 if __name__ == "__main__":
     main()

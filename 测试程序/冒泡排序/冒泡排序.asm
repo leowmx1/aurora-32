@@ -58,9 +58,12 @@
 	CALL {addr: u32} => 0x000000 @ 0x34 @ addr`32
 	CAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32
 	RET => 0x00000036
-	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0037
-	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x38
-	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0039
+	INT {addr: u32} => 0x00000037 @ addr`32
+	IRET => 0x00000038
+
+	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
+	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
+	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
 
 	HALT => 0x000000F0
 }
