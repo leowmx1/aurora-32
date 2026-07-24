@@ -59,7 +59,8 @@
 	CAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32
 	RET => 0x00000036
 	INT {addr: u32} => 0x00000037 @ addr`32
-	IRET => 0x00000038
+	CINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32
+	IRET => 0x00000039
 
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
