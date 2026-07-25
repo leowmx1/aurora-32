@@ -13,6 +13,8 @@
 	rom[{inner_addr: u24}] => 0x00 @ inner_addr`24
     ram[{inner_addr: u24}] => 0x01 @ inner_addr`24
     sp[{inner_addr: u24}] => 0x02 @ inner_addr`24
+	keyboard => 0x03000000
+	terminal => 0x04000000
 }
 #subruledef cond
 {
@@ -61,6 +63,8 @@
 	INT {addr: u32} => 0x00000037 @ addr`32
 	CINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32
 	IRET => 0x00000039
+	EI => 0x0000003A
+	DI => 0x0000003B
 
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41

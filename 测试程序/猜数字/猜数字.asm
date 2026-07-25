@@ -13,6 +13,8 @@
 	rom[{inner_addr: u24}] => 0x00 @ inner_addr`24
     ram[{inner_addr: u24}] => 0x01 @ inner_addr`24
     sp[{inner_addr: u24}] => 0x02 @ inner_addr`24
+	keyboard => 0x03000000
+	terminal => 0x04000000
 }
 #subruledef cond
 {
@@ -61,6 +63,8 @@
 	INT {addr: u32} => 0x00000037 @ addr`32
 	CINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32
 	IRET => 0x00000039
+	EI => 0x0000003A
+	DI => 0x0000003B
 
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
@@ -72,36 +76,51 @@
 
 LDA r15, sp[0x000000]
 LSP r15
-LDI r0, 0x91919191
+LDI r0, 0x00000003
 LDI r3, 0x41C64E6D
 LDI r4, 0x00003039
-LDI r5, 0x00000010
+LDI r5, 0x00000009
+LDI r14, 0x00000030
+EI
 loop:
-	LDR r1, ram[0x000000]
+	JMP loop
+#addr 0x00000100
+int_process:
+	LDR r1, keyboard
+	SUB r1, r14, r1
 	CMP r1, r0
 	JCC z, success
 	CAC c, smaller
 	CAC nc, bigger
-	JMP loop
+	EI
+	IRET
 bigger:
-	LDI r10, 0xBBBBBBBB
-	STR r10, ram[0x000001]
+	LDI r10, 0x0000003E
+	STR r10, terminal
+	LDI r10, 0x0000000A
+	STR r10, terminal
 	RET
 smaller:
-	LDI r10, 0xAAAAAAAA
-	STR r10, ram[0x000001]
+	LDI r10, 0x0000003C
+	STR r10, terminal
+	LDI r10, 0x0000000A
+	STR r10, terminal
 	RET
 success:
-	LDI r10, 0xFFFFFFFF
-	STR r10, ram[0x000001]
+	LDI r10, 0x0000003D
+	STR r10, terminal
+	LDI r10, 0x0000000A
+	STR r10, terminal
 	INC r11, r11
-	STR r11, ram[0x000002]
-	LDI r1, 0x00000000
-	STR r1, ram[0x000000]
-	CALL random
-	JMP loop
-random:
+	ADD r11, r14, r12
+	STR r12, terminal
+	LDI r10, 0x0000000A
+	STR r10, terminal
 	MUL r3, r0, r0
 	ADD r0, r4, r0
 	REM r0, r5, r0
-	RET
+	STR r0, ram[0x000000]
+	EI
+	IRET
+
+
