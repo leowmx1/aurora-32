@@ -13,15 +13,18 @@
 	rom[{inner_addr: u24}] => 0x00 @ inner_addr`24
     ram[{inner_addr: u24}] => 0x01 @ inner_addr`24
     sp[{inner_addr: u24}] => 0x02 @ inner_addr`24
-	keyboard => 0x03000000
-	terminal => 0x04000000
+	ivt[{inner_addr: u24}] => 0x03 @ inner_addr`24
+	keyboard => 0x04000000
+	terminal => 0x05000000
 }
 #subruledef cond
 {
 	c => 0x1
     z => 0x2
-    nc => 0x3
-	nz => 0x4
+	b => 0x3
+    nc => 0x4
+	nz => 0x5
+	nb => 0x6
 }
 #ruledef
 {
@@ -34,6 +37,7 @@
 	STR r{reg_a: u4}, {addr: src} => 0x000 @ reg_a`4 @ 0x00 @ 0x14 @ addr`32
 	LDI r{reg_w: u4}, {value: u32} => 0x00000 @ reg_w`4 @ 0x15 @ value`32
 	LDA r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32
+	LDC r{reg_w: u4}, {addr: u32} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32
 	LDO r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x17
 
 	ADD r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x20

@@ -49,7 +49,7 @@ BITS_MAIN = {
 # 中断CU 32位 位定义 (主CU 30位 + 高2位)
 BITS_INT = {
     31: "INT_RET",
-    30: "OE_INTAC",
+    30: "OE_INT_REQ",
     **{k: v for k, v in BITS_MAIN.items()},  # 继承主CU的低30位
 }
 
