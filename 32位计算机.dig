@@ -564,7 +564,7 @@
 ,11*0,f001010,f600020,f002080,f201010,f400020,f000810,f001040
 ,f804002,2f002008,7*0,f001010,f600020,f002080,10000000,f201010
 ,f400020,f000810,f001040,f804002,2f002008,6*0,f001010,f600020
-,f002080,f000001,f000810,f400028,2f002008,9*0,f001010,f600020
+,f002080,f000001,f000810,f400020,2f002008,9*0,f001010,f600020
 ,f002080,f201010,f400020,f000810,f001040,f804002,f000810,f020040
 ,f804002,2f002008,4*0,f001010,f600020,f002080,10000000,f201010
 ,f400020,f000810,f001040,f804002,f000810,f020040,f804002,2f002008
@@ -3336,12 +3336,12 @@
       <elementName>RAMSinglePortSel</elementName>
       <elementAttributes>
         <entry>
-          <string>Label</string>
-          <string>IVT</string>
-        </entry>
-        <entry>
           <string>AddrBits</string>
           <int>24</int>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>IVT</string>
         </entry>
         <entry>
           <string>Bits</string>
