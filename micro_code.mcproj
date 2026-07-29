@@ -528,6 +528,11 @@
         "leftSignalId": "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
         "rightSignalId": "e8524f0f-7b35-47d5-9db9-543fec88397d"
       }
-    ]
+    ],
+    "appSettings": {
+      "restoreLastFile": true,
+      "autoCompress": true,
+      "animations": true
+    }
   }
 }

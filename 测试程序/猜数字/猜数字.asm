@@ -16,6 +16,7 @@
 	ivt[{inner_addr: u24}] => 0x03 @ inner_addr`24
 	keyboard => 0x04000000
 	terminal => 0x05000000
+	telnet => 0x06000000
 }
 #subruledef cond
 {

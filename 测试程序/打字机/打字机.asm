@@ -16,6 +16,7 @@
 	ivt[{inner_addr: u24}] => 0x03 @ inner_addr`24
 	keyboard => 0x04000000
 	terminal => 0x05000000
+	telnet => 0x06000000
 }
 #subruledef cond
 {
@@ -78,17 +79,27 @@
 }
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
-LDC r15, int_func
+LDC r15, send
 STR r15, ivt[0x000000]
+LDC r15, receive
+STR r15, ivt[0x000001]
 LDA r15, sp[0x000000]
 LSP r15
 LDI r14, 0x00000000
+LDI r13, 0x00000000
+INC r1, r1
 EI
 loop:
     JMP loop
-int_func:
+send:
 	INC r14, r14
 	STR r14, ram[0x000000]
     LDR r0, keyboard
+    STR r0, telnet
+    IRET
+receive:
+    INC r13, r13
+    STR r13, ram[0x000001]
+    LDR r0, telnet
     STR r0, terminal
     IRET
