@@ -513,26 +513,42 @@
       {
         "id": "fadd7d6f-0f16-4620-8b0d-ea594bec519d",
         "type": "mutex",
-        "leftSignalId": "dae92ab8-d69c-4559-80c2-fc7eccf87808",
-        "rightSignalId": "e9ac01be-963c-40ee-a49e-cec2fa5d7c98"
+        "severity": "error",
+        "signalIds": [
+          "dae92ab8-d69c-4559-80c2-fc7eccf87808",
+          "e9ac01be-963c-40ee-a49e-cec2fa5d7c98"
+        ]
       },
       {
         "id": "3be1ac02-9c6f-480f-87ac-2ed558b29943",
         "type": "mutex",
-        "leftSignalId": "0815828a-b32f-4f8d-bda6-4eedd9435d3e",
-        "rightSignalId": "013b0af5-5197-458f-a193-58b8bf42f7cd"
+        "severity": "error",
+        "signalIds": [
+          "0815828a-b32f-4f8d-bda6-4eedd9435d3e",
+          "013b0af5-5197-458f-a193-58b8bf42f7cd"
+        ]
       },
       {
         "id": "1ec46525-0e3b-4209-bfd3-25fa9210645a",
         "type": "mutex",
-        "leftSignalId": "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
-        "rightSignalId": "e8524f0f-7b35-47d5-9db9-543fec88397d"
+        "severity": "error",
+        "signalIds": [
+          "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
+          "e8524f0f-7b35-47d5-9db9-543fec88397d"
+        ]
       }
     ],
     "appSettings": {
       "restoreLastFile": true,
       "autoCompress": true,
-      "animations": true
+      "animations": true,
+      "assemblyTabSize": 4,
+      "assemblyAutocomplete": true,
+      "checkBeforeSave": true,
+      "autoExpandProblems": true,
+      "autoSaveProject": true,
+      "autoSaveHex": true,
+      "customasmRuleHeader": "#bankdef global\n{\n    bits = 32\n    addr = 0x00000000\n    size = 0x00FFFFFF\n    outp = 0\n\tlabelalign = 32\n}\n#bank global\n#addr 0x00000000\n#subruledef src\n{\n\trom[{inner_addr: u24}] => 0x00 @ inner_addr`24\n    ram[{inner_addr: u24}] => 0x01 @ inner_addr`24\n    sp[{inner_addr: u24}] => 0x02 @ inner_addr`24\n\tivt[{inner_addr: u24}] => 0x03 @ inner_addr`24\n\tkeyboard => 0x04000000\n\tterminal => 0x05000000\n\ttelnet => 0x06000000\n}\n#subruledef cond\n{\n\tc => 0x1\n    z => 0x2\n\tb => 0x3\n    nc => 0x4\n\tnz => 0x5\n\tnb => 0x6\n}\n#ruledef\n{\n\tNOP => 0x00000000\n\n\tMOV r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x10\n    ILD r{reg_w: u4}, r{reg_b: u4} => 0x0000 @ reg_b`4 @ reg_w`4 @ 0x11\n\tIST r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x012\n\tLDR r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x13 @ addr`32\n\tSTR r{reg_a: u4}, {addr: src} => 0x000 @ reg_a`4 @ 0x00 @ 0x14 @ addr`32\n\tLDI r{reg_w: u4}, {value: u32} => 0x00000 @ reg_w`4 @ 0x15 @ value`32\n\tLDA r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDC r{reg_w: u4}, {addr: u32} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDO r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x17\n\n\tADD r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x20\n\tSUB r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x21\n\tINC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x22\n\tDEC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x23\n\tMUL r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x24\n\tDIV r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x25\n\tREM r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x26\n\tSFT r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x27\n\tAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x28\n\tNAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x29\n\tOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2A\n\tNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2B\n\tXOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2C\n\tXNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2D\n\tNOT r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x2E\n\tCMP r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x02F\n\n\tJMP {addr: u32} => 0x00000030 @ addr`32\n\tJCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32\n\tJPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032\n\tJRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033\n\tCALL {addr: u32} => 0x000000 @ 0x34 @ addr`32\n\tCAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32\n\tRET => 0x00000036\n\tINT {addr: u32} => 0x00000037 @ addr`32\n\tCINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32\n\tIRET => 0x00000039\n\tEI => 0x0000003A\n\tDI => 0x0000003B\n\n\tPUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040\n\tPOP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41\n\tLSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042\n\n\tHALT => 0x000000F0\n}\n; customasm <file_path> -f list,base:16,group:8,between:\" \",before:\"v2.0 raw\\n\",after:\"\" -o <output_path>"
     }
   }
 }
