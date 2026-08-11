@@ -74,12 +74,13 @@
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
 	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
+    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43
 
 	HALT => 0x000000F0
 }
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
-LDA r15, sp[0x000000]
+LDA r15, stack[0x000000]
 LSP r15
 LDC r15, int_process
 STR r15, ivt[0x000000]

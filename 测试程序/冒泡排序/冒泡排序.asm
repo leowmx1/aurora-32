@@ -74,29 +74,28 @@
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
 	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
+    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43
 
 	HALT => 0x000000F0
 }
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
-LDI r9, 0x8F5A371C
-STR r9, ram[0x000000]
-LDI r9, 0xA63F778E
-STR r9, ram[0x000001]
-LDI r9, 0x7349BC73
-STR r9, ram[0x000002]
-LDI r9, 0x13131313
-STR r9, ram[0x000003]
-LDI r9, 0x99346FBC
-STR r9, ram[0x000004]
-
-LDA r15, sp[0x000000]
+LDA r15, stack[0x000000]
 LSP r15
 LDA r10, ram[0x000000]
-LDA r11, ram[0x000004]
-JMP loop
-
+LDC r15, input
+STR r15, ivt[0x0]
+LDI r8, 0x30
+LDI r7, 0xA
+LDI r6, 0x5D
+LDI r4, 0x3C
+EI
+waitfor_input:
+	CMP r10, r11
+	JCC c, loop
+	JMP waitfor_input
 loop:
+	DI
 	ILD r0, r10
 	INC r10, r10
 	ILD r1, r10
@@ -114,10 +113,61 @@ swap:
 	RET
 next_round:
 	CMP r12, r13
-	JCC z, end
+	JCC z, end_sort
 	LDA r10, ram[0x000000]
 	LDI r12, 0x00000000
 	RET
-end:
-	HALT
+end_sort:
+	LDA r10, ram[0x0]
+	LDI r15, 0x0
+	.to_str:
+		ILD r0, r10
+		..to_str_loop:
+			REM r0, r7, r1
+			DIV r0, r7, r0
+			PUSH r1
+			INC r2, r2
+			CMP r0, r15
+			JCC z, ..end_num_loop
+			JMP ..to_str_loop
+		..end_num_loop:
+			POP r1
+			ADD r1, r8, r1
+			STR r1, terminal
+			DEC r2, r2
+			CMP r2, r15
+			JCC z, ..next_output_num
+			JMP ..end_num_loop
+		..next_output_num:
+			CMP r10, r11
+			JCC z, .end_output
+			STR r4, terminal
+			INC r10, r10
+			JMP .to_str
+	.end_output:
+		HALT
+
+
+input:
+	LDR r9, keyboard
+	CMP r9, r7
+	JCC z, next_num
+	CMP r9, r6
+	JCC z, end_input
+	STR r9, terminal
+	SUB r9, r8, r9
+	MUL r5, r7, r5
+	ADD r5, r9, r5
+	IRET
+next_num:
+	IST r5, r10
+	LDI r5, 0x0
+	INC r10, r10
+	STR r7, terminal
+	IRET
+end_input:
+	DEC r10, r10
+	MOV r10, r11
+	LDA r10, ram[0x0]
+	IRET
 	

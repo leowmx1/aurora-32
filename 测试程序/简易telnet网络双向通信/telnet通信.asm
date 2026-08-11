@@ -74,6 +74,7 @@
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
 	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
+    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43
 
 	HALT => 0x000000F0
 }
@@ -83,7 +84,7 @@ LDC r15, send
 STR r15, ivt[0x000000]
 LDC r15, receive
 STR r15, ivt[0x000001]
-LDA r15, sp[0x000000]
+LDA r15, stack[0x000000]
 LSP r15
 LDI r14, 0x00000000
 LDI r13, 0x00000000

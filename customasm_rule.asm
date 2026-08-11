@@ -74,6 +74,7 @@
 	PUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
 	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
+    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43
 
 	HALT => 0x000000F0
 }
