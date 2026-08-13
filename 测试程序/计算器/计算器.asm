@@ -12,7 +12,7 @@
 {
 	rom[{inner_addr: u24}] => 0x00 @ inner_addr`24
     ram[{inner_addr: u24}] => 0x01 @ inner_addr`24
-    sp[{inner_addr: u24}] => 0x02 @ inner_addr`24
+    stack[{inner_addr: u24}] => 0x02 @ inner_addr`24
 	ivt[{inner_addr: u24}] => 0x03 @ inner_addr`24
 	keyboard => 0x04000000
 	terminal => 0x05000000
@@ -75,6 +75,10 @@
 	POP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41
 	LSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042
     OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43
+	FTS => 0x00000044
+	STF => 0x00000045
+	PUSHFP => 0x00000046
+	POPFP => 0x00000047
 
 	HALT => 0x000000F0
 }
