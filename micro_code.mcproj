@@ -3,13 +3,13 @@
   "hexFile": "micro_code.hex",
   "preferences": {
     "version": 1,
-    "wordWidth": 32,
+    "wordWidth": 33,
     "rules": [
       {
         "id": "0bb7fa85-8732-4c43-90f2-54d087cb9da2",
         "name": "ENDCYCLE",
         "description": "周期结束，复位环形计数器",
-        "lsb": 31,
+        "lsb": 32,
         "width": 1,
         "type": "component-operation",
         "inactiveValue": 0
@@ -18,6 +18,15 @@
         "id": "e2026720-c28b-4968-92eb-069830c52b88",
         "name": "CONDJMP",
         "description": "条件跳转使能",
+        "lsb": 31,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "da9db244-259c-457b-9f5c-ae0550210fdd",
+        "name": "SignedCalc",
+        "description": "有符号运算信号",
         "lsb": 30,
         "width": 1,
         "type": "component-operation",
@@ -538,6 +547,30 @@
         "mnemonic": "POPFP",
         "format": "R",
         "description": "弹栈至FP"
+      },
+      {
+        "opcode": 80,
+        "mnemonic": "SMUL",
+        "format": "R",
+        "description": "有符号乘法"
+      },
+      {
+        "opcode": 81,
+        "mnemonic": "SDIV",
+        "format": "R",
+        "description": "有符号除法"
+      },
+      {
+        "opcode": 82,
+        "mnemonic": "SREM",
+        "format": "R",
+        "description": "有符号取余"
+      },
+      {
+        "opcode": 83,
+        "mnemonic": "SSFT",
+        "format": "R",
+        "description": "有符号算术左移"
       },
       {
         "opcode": 240,

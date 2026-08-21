@@ -1,115 +1,128 @@
 #include <aurora.h>
 
-/* 保留 RAM 最后的三个字作为程序状态。 */
-#define INPUT_COUNT aurora.ram[0xFFFFFD]
-#define INPUT_DONE  aurora.ram[0xFFFFFE]
-#define HAS_DIGIT   aurora.ram[0xFFFFFF]
+#define MAX_VALUES 1024
+
+/* These objects are shared with the keyboard ISR and must stay volatile. */
+volatile int input_count;
+volatile int input_done;
+volatile int has_digit;
+volatile int input_negative;
+volatile int values[MAX_VALUES];
 
 aurora_interrupt("keyboard")
 void handle_input(void);
+
+static void finish_number(void) {
+    if (!has_digit) {
+        input_negative = 0;
+        return;
+    }
+
+    if (input_count < MAX_VALUES) {
+        input_count++;
+    }
+
+    has_digit = 0;
+    input_negative = 0;
+
+    if (input_count < MAX_VALUES) {
+        values[input_count] = 0;
+    }
+}
 
 __attribute__((noreturn))
 void _start(void) {
     aurora.SetUpStackPointer();
     aurora.DisableInterrupt();
 
-    INPUT_COUNT = 0;
-    INPUT_DONE = 0;
-    HAS_DIGIT = 0;
-    aurora.ram[0] = 0;
+    input_count = 0;
+    input_done = 0;
+    has_digit = 0;
+    input_negative = 0;
+    values[0] = 0;
 
     aurora.EnableInterrupt();
 
-    while (!INPUT_DONE) {
+    /* Volatile is essential: the keyboard ISR changes input_done. */
+    while (!input_done) {
     }
 
-    /* IRET 会重新开中断，因此在主程序中关闭。 */
+    /* IRET enables interrupts again, so stop keyboard writes while sorting. */
     aurora.DisableInterrupt();
 
-    int count = INPUT_COUNT;
-    int sorted = 0;
-
-    while (!sorted) {
+    int count = input_count;
+    for (int end = count - 1; end > 0; end--) {
         int swapped = 0;
 
-        for (int i = 0; i + 1 < count; i++) {
-            if (aurora.ram[i] > aurora.ram[i + 1]) {
-                int temp = aurora.ram[i];
-                aurora.ram[i] = aurora.ram[i + 1];
-                aurora.ram[i + 1] = temp;
+        for (int i = 0; i < end; i++) {
+            int left = values[i];
+            int right = values[i + 1];
+
+            if (left > right) {
+                values[i] = right;
+                values[i + 1] = left;
                 swapped = 1;
             }
         }
 
         if (!swapped) {
-            sorted = 1;
+            break;
         }
     }
 
-    aurora.io.PutChar('\n');
-
+    aurora.io.PutString("\n");
     for (int i = 0; i < count; i++) {
-        int value = aurora.ram[i];
-        int old_sp_value = aurora.GetStackPointer();
-        while (value > 0) {
-            char c = value % 10 + '0';
-            aurora.stack.Push(c);
-            value /= 10;
-        }
-        while (aurora.GetStackPointer() > old_sp_value) {
-            aurora.io.PutChar(aurora.stack.Pop());
-        }
-        if (aurora.ram[i] == 0) {
-            aurora.io.PutChar('0');
-        }
+        aurora.io.PutInt(values[i]);
+
         if (i + 1 < count) {
-            if (aurora.ram[i] == aurora.ram[i + 1]) {
+            if (values[i] == values[i + 1]) {
                 aurora.io.PutChar('=');
             } else {
                 aurora.io.PutChar('<');
             }
         }
     }
-
+    aurora.io.PutString("\n");
     aurora.Halt();
 }
 
 void handle_input(void) {
     char c = aurora.io.GetChar();
 
-    if (INPUT_DONE) {
-        return;
-    }
-
-    if (c == '\n' || c == '\r') {
-        /* 避免 CRLF 被计算成两个空数字。 */
-        if (HAS_DIGIT) {
-            INPUT_COUNT++;
-            HAS_DIGIT = 0;
-            aurora.ram[INPUT_COUNT] = 0;
-        }
-        aurora.io.PutChar(c);
+    if (input_done) {
         return;
     }
 
     if (c == ']') {
-        /* 最后一个数字后可以不输入回车。 */
-        if (HAS_DIGIT) {
-            INPUT_COUNT++;
-            HAS_DIGIT = 0;
-        }
-
-        INPUT_DONE = 1;
+        finish_number();
+        input_done = 1;
         return;
     }
 
-    if (c >= '0' && c <= '9') {
-        int index = INPUT_COUNT;
-
-        aurora.ram[index] =
-            aurora.ram[index] * 10 + (c - '0');
-
+    if (c == '\n' || c == '\r') {
+        /* An empty LF after CR, or any other empty line, adds no value. */
+        finish_number();
         aurora.io.PutChar(c);
-        HAS_DIGIT = 1;
+        return;
+    }
+
+    if (c == '-' && !has_digit && !input_negative) {
+        input_negative = 1;
+        aurora.io.PutChar(c);
+        return;
+    }
+
+    if (c >= '0' && c <= '9' && input_count < MAX_VALUES) {
+        int digit = c - '0';
+        int value = values[input_count];
+
+        if (input_negative) {
+            values[input_count] = value * 10 - digit;
+        } else {
+            values[input_count] = value * 10 + digit;
+        }
+
+        has_digit = 1;
+        aurora.io.PutChar(c);
     }
 }
