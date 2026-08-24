@@ -85,7 +85,7 @@
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
 LDC r15, input_a
-STR r15, ivt[0x0]
+STR r15, ivt[0x000001]
 LDA r15, stack[0x0]
 LSP r15
 
@@ -120,25 +120,25 @@ input_a:
 	IRET
 change_int_func_add:
 	LDC r15, input_b
-	STR r15, ivt[0x0]
+	STR r15, ivt[0x000001]
 	STR r9, terminal
 	LDI r15, 0x0
 	IRET
 change_int_func_sub:
 	LDC r15, input_b
-	STR r15, ivt[0x0]
+	STR r15, ivt[0x000001]
 	STR r8, terminal
 	LDI r15, 0x1
 	IRET
 change_int_func_mul:
 	LDC r15, input_b
-	STR r15, ivt[0x0]
+	STR r15, ivt[0x000001]
 	STR r7, terminal
 	LDI r15, 0x2
 	IRET
 change_int_func_div:
 	LDC r15, input_b
-	STR r15, ivt[0x0]
+	STR r15, ivt[0x000001]
 	STR r6, terminal
 	LDI r15, 0x3
 	IRET
@@ -203,7 +203,7 @@ calc:
 		JMP .output
 	.end:
 		LDC r15, input_a
-		STR r15, ivt[0x0]
+		STR r15, ivt[0x000001]
 		LDI r0, 0x0
 		LDI r1, 0x0
 		STR r13, terminal

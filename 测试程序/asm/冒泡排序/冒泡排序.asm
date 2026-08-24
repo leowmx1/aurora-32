@@ -88,7 +88,7 @@ LDA r15, stack[0x000000]
 LSP r15
 LDA r10, ram[0x000000]
 LDC r15, input
-STR r15, ivt[0x0]
+STR r15, ivt[0x000001]
 LDI r8, 0x30
 LDI r7, 0xA
 LDI r6, 0x5D

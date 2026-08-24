@@ -7,6 +7,7 @@ volatile int input_count;
 volatile int input_done;
 volatile int has_digit;
 volatile int input_negative;
+volatile int current_value_wide;
 volatile int values[MAX_VALUES];
 
 aurora_interrupt("keyboard")
@@ -18,12 +19,22 @@ static void finish_number(void) {
         return;
     }
 
+    for (int i = 0; i < current_value_wide; i++) {
+        aurora.io.PutChar('\b');
+    }
+    aurora.io.PutString("Number ");
+    aurora.io.PutInt(input_count + 1);
+    aurora.io.PutString(": ");
+    aurora.io.PutInt(values[input_count]);
+    aurora.io.PutString("\n");
+
     if (input_count < MAX_VALUES) {
         input_count++;
     }
 
     has_digit = 0;
     input_negative = 0;
+    current_value_wide = 0;
 
     if (input_count < MAX_VALUES) {
         values[input_count] = 0;
@@ -39,7 +50,10 @@ void _start(void) {
     input_done = 0;
     has_digit = 0;
     input_negative = 0;
+    current_value_wide = 0;
     values[0] = 0;
+
+    aurora.io.PutString("Enter integers to sort, one per line. End with ']'.\n");
 
     aurora.EnableInterrupt();
 
@@ -49,6 +63,8 @@ void _start(void) {
 
     /* IRET enables interrupts again, so stop keyboard writes while sorting. */
     aurora.DisableInterrupt();
+
+    aurora.io.PutString("Sorting...\n");
 
     int count = input_count;
     for (int end = count - 1; end > 0; end--) {
@@ -70,7 +86,7 @@ void _start(void) {
         }
     }
 
-    aurora.io.PutString("\n");
+    aurora.io.PutString("Sorted values:\n");
     for (int i = 0; i < count; i++) {
         aurora.io.PutInt(values[i]);
 
@@ -102,12 +118,12 @@ void handle_input(void) {
     if (c == '\n' || c == '\r') {
         /* An empty LF after CR, or any other empty line, adds no value. */
         finish_number();
-        aurora.io.PutChar(c);
         return;
     }
 
     if (c == '-' && !has_digit && !input_negative) {
         input_negative = 1;
+        current_value_wide++;
         aurora.io.PutChar(c);
         return;
     }
@@ -123,6 +139,7 @@ void handle_input(void) {
         }
 
         has_digit = 1;
+        current_value_wide++;
         aurora.io.PutChar(c);
     }
 }

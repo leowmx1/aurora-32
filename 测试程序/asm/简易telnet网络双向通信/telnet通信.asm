@@ -85,9 +85,9 @@
 ; customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
 
 LDC r15, send
-STR r15, ivt[0x000000]
-LDC r15, receive
 STR r15, ivt[0x000001]
+LDC r15, receive
+STR r15, ivt[0x000002]
 LDA r15, stack[0x000000]
 LSP r15
 LDI r14, 0x00000000

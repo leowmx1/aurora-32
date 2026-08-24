@@ -87,7 +87,7 @@
 LDA r15, stack[0x000000]
 LSP r15
 LDC r15, int_process
-STR r15, ivt[0x000000]
+STR r15, ivt[0x000001]
 LDI r0, 0x00000003
 LDI r3, 0x41C64E6D
 LDI r4, 0x00003039
