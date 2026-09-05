@@ -3,8 +3,35 @@
   "hexFile": "micro_code.hex",
   "preferences": {
     "version": 1,
-    "wordWidth": 33,
+    "wordWidth": 36,
     "rules": [
+      {
+        "id": "7966d1fd-c5ea-4dcd-bb07-a1f195539150",
+        "name": "Kernel Use USP",
+        "description": "内核态使用用户栈",
+        "lsb": 35,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "1492f1ba-52e9-447c-8975-27fc66726e12",
+        "name": "SET_KernelMode",
+        "description": "切入内核态",
+        "lsb": 34,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "2eb711a1-3668-4925-8173-b02e0293476a",
+        "name": "CLR_KernelMode",
+        "description": "切入用户态",
+        "lsb": 33,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
       {
         "id": "0bb7fa85-8732-4c43-90f2-54d087cb9da2",
         "name": "ENDCYCLE",
@@ -573,6 +600,18 @@
         "description": "有符号算术左移"
       },
       {
+        "opcode": 96,
+        "mnemonic": "PUSHU",
+        "format": "R",
+        "description": "控制用户栈SP ← SP+1，M[SP] ← Ra"
+      },
+      {
+        "opcode": 97,
+        "mnemonic": "POPU",
+        "format": "R",
+        "description": "控制用户栈Rw ← M[SP]，SP ← SP-1"
+      },
+      {
         "opcode": 240,
         "mnemonic": "HALT",
         "format": "R",
@@ -616,6 +655,15 @@
         "signalIds": [
           "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
           "e8524f0f-7b35-47d5-9db9-543fec88397d"
+        ]
+      },
+      {
+        "id": "482a49d8-2adb-4ba8-9cfc-965e3e0662c0",
+        "type": "mutex",
+        "severity": "error",
+        "signalIds": [
+          "1492f1ba-52e9-447c-8975-27fc66726e12",
+          "2eb711a1-3668-4925-8173-b02e0293476a"
         ]
       }
     ],

@@ -1,0 +1,683 @@
+{
+  "version": 1,
+  "hexFile": "micro_code_user.hex",
+  "preferences": {
+    "version": 1,
+    "wordWidth": 36,
+    "rules": [
+      {
+        "id": "d7489c02-7e77-46fc-b154-0f60616220c6",
+        "name": "AV_IInstERR",
+        "description": "非法指令异常",
+        "lsb": 35,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "1492f1ba-52e9-447c-8975-27fc66726e12",
+        "name": "SET_KernelMode",
+        "description": "切入内核态",
+        "lsb": 34,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "2eb711a1-3668-4925-8173-b02e0293476a",
+        "name": "CLR_KernelMode",
+        "description": "切入用户态",
+        "lsb": 33,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "0bb7fa85-8732-4c43-90f2-54d087cb9da2",
+        "name": "ENDCYCLE",
+        "description": "周期结束，复位环形计数器",
+        "lsb": 32,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "e2026720-c28b-4968-92eb-069830c52b88",
+        "name": "CONDJMP",
+        "description": "条件跳转使能",
+        "lsb": 31,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "da9db244-259c-457b-9f5c-ae0550210fdd",
+        "name": "SignedCalc",
+        "description": "有符号运算信号",
+        "lsb": 30,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "647055f4-f0a7-4c9d-843f-83a4974fc14a",
+        "name": "ALUMODE",
+        "description": "ALU功能选择",
+        "lsb": 26,
+        "width": 4,
+        "type": "component-operation",
+        "inactiveValue": 15
+      },
+      {
+        "id": "36163825-6b7d-4dba-9035-791511f52d70",
+        "name": "WE",
+        "description": "写外部存储器",
+        "lsb": 25,
+        "width": 1,
+        "type": "external-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "aa8a612b-1ee8-400d-a31a-deaa8b82105e",
+        "name": "OE",
+        "description": "读外部存储器",
+        "lsb": 24,
+        "width": 1,
+        "type": "external-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "88e4a41d-1b7f-417d-bb73-a1d491ca3f61",
+        "name": "INC_PC",
+        "description": "PC自增",
+        "lsb": 23,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "dae92ab8-d69c-4559-80c2-fc7eccf87808",
+        "name": "SET_IE",
+        "description": "置位IE标志",
+        "lsb": 22,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "e9ac01be-963c-40ee-a49e-cec2fa5d7c98",
+        "name": "CLR_IE",
+        "description": "复位IE标志",
+        "lsb": 21,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "1fedab54-06d1-4b3f-9eca-b189ad45e8d1",
+        "name": "OE_ALU",
+        "description": "ALU输出驱动内部总线",
+        "lsb": 20,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "3f99f7bc-1651-4d2b-9328-92f922d512d2",
+        "name": "OE_RFlags",
+        "description": "标志寄存器输出驱动总线",
+        "lsb": 19,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "3149d7e5-50cb-403c-96da-9811aef5eff8",
+        "name": "OE_Rb",
+        "description": "Rb输出驱动总线",
+        "lsb": 18,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "3c24ee14-1bad-4c90-977e-3cbf71b1ab10",
+        "name": "OE_Ra",
+        "description": "Ra输出驱动总线",
+        "lsb": 17,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "bda17643-ba71-4ef7-8e02-3464b80f916e",
+        "name": "OE_MDREXT",
+        "description": "MDREXT驱动外部数据总线",
+        "lsb": 16,
+        "width": 1,
+        "type": "external-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "1a7f218e-b016-4856-8eaa-13937bf6f433",
+        "name": "OE_MDRINT",
+        "description": "MDRINT驱动内部总线",
+        "lsb": 15,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "4cebb0ca-91ec-4d49-b598-cf3e5dd907d2",
+        "name": "OE_PC",
+        "description": "PC驱动内部总线",
+        "lsb": 14,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "a6ea87e7-b3f0-4346-ad81-d6c675dd4422",
+        "name": "OE_SP",
+        "description": "SP驱动地址总线",
+        "lsb": 13,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "81322bec-0111-48e9-af31-8057fe97fa5c",
+        "name": "OE_FP",
+        "description": "FP驱动内部总线",
+        "lsb": 12,
+        "width": 1,
+        "type": "internal-bus-driver",
+        "inactiveValue": 0
+      },
+      {
+        "id": "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
+        "name": "LD_RFlags_Bus",
+        "description": "从总线恢复标志位",
+        "lsb": 11,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "e8524f0f-7b35-47d5-9db9-543fec88397d",
+        "name": "LD_RFlags",
+        "description": "ALU标志锁存",
+        "lsb": 10,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "4a5a39e1-117f-438d-ac91-947ff7cebfed",
+        "name": "LD_Rw",
+        "description": "寄存器写使能",
+        "lsb": 9,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "18080f56-7baf-43a4-90f6-e0015e353755",
+        "name": "LD_IR",
+        "description": "指令寄存器写使能",
+        "lsb": 8,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "df7930a7-880a-4bfe-8b03-f81cc960d896",
+        "name": "LD_MDREXT",
+        "description": "MDREXT写使能",
+        "lsb": 7,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "d9fbd33c-e100-43e5-a6da-c92c5bad2873",
+        "name": "LD_MDRINT",
+        "description": "MDRINT写使能",
+        "lsb": 6,
+        "width": 1,
+        "type": "external-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "19a35d03-b8a0-46e7-bc0b-96b45332288b",
+        "name": "LD_MAR",
+        "description": "MAR写使能",
+        "lsb": 5,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "6aa45b47-8d98-4492-937a-6682012def81",
+        "name": "LD_PC",
+        "description": "PC加载使能",
+        "lsb": 4,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "f488567a-4cb9-4a31-aef9-e926a80feafd",
+        "name": "LD_SP",
+        "description": "SP加载使能",
+        "lsb": 3,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "84981014-f07e-4a62-af77-6575609726fe",
+        "name": "LD_FP",
+        "description": "FP加载使能",
+        "lsb": 2,
+        "width": 1,
+        "type": "internal-register-load",
+        "inactiveValue": 0
+      },
+      {
+        "id": "0815828a-b32f-4f8d-bda6-4eedd9435d3e",
+        "name": "UP_SP",
+        "description": "SP自增",
+        "lsb": 1,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
+      {
+        "id": "013b0af5-5197-458f-a193-58b8bf42f7cd",
+        "name": "DN_SP",
+        "description": "SP自减",
+        "lsb": 0,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      }
+    ],
+    "statesPerInstruction": 16,
+    "instructions": [
+      {
+        "opcode": 0,
+        "mnemonic": "NOP",
+        "format": "R",
+        "description": "空操作"
+      },
+      {
+        "opcode": 16,
+        "mnemonic": "MOV",
+        "format": "R",
+        "description": "Rw ← Ra"
+      },
+      {
+        "opcode": 17,
+        "mnemonic": "ILD",
+        "format": "R",
+        "description": "Rw ← M[Rb]（间接读）"
+      },
+      {
+        "opcode": 18,
+        "mnemonic": "IST",
+        "format": "R",
+        "description": "M[Rb] ← Ra（间接写）"
+      },
+      {
+        "opcode": 19,
+        "mnemonic": "LDR",
+        "format": "I",
+        "description": "Rw ← M[addr]（绝对读）"
+      },
+      {
+        "opcode": 20,
+        "mnemonic": "STR",
+        "format": "I",
+        "description": "M[addr] ← Ra（绝对写）"
+      },
+      {
+        "opcode": 21,
+        "mnemonic": "LDI",
+        "format": "I",
+        "description": "Rw ← imm32（加载立即数）"
+      },
+      {
+        "opcode": 22,
+        "mnemonic": "LDA",
+        "format": "I",
+        "description": "Rw ← addr（加载绝对地址）"
+      },
+      {
+        "opcode": 23,
+        "mnemonic": "LDO",
+        "format": "R",
+        "description": "Rw ← M[Ra + Rb]（基址+偏移读）"
+      },
+      {
+        "opcode": 32,
+        "mnemonic": "ADD",
+        "format": "R",
+        "description": "Rw ← Ra + Rb · ALUMODE 0000"
+      },
+      {
+        "opcode": 33,
+        "mnemonic": "SUB",
+        "format": "R",
+        "description": "Rw ← Ra - Rb · ALUMODE 0001"
+      },
+      {
+        "opcode": 34,
+        "mnemonic": "INC",
+        "format": "R",
+        "description": "Rw ← Ra + 1 · ALUMODE 1100"
+      },
+      {
+        "opcode": 35,
+        "mnemonic": "DEC",
+        "format": "R",
+        "description": "Rw ← Ra - 1 · ALUMODE 1101"
+      },
+      {
+        "opcode": 36,
+        "mnemonic": "MUL",
+        "format": "R",
+        "description": "Rw ← Ra * Rb（低32位）· ALUMODE 0010"
+      },
+      {
+        "opcode": 37,
+        "mnemonic": "DIV",
+        "format": "R",
+        "description": "Rw ← Ra / Rb（商）· ALUMODE 0011"
+      },
+      {
+        "opcode": 38,
+        "mnemonic": "REM",
+        "format": "R",
+        "description": "Rw ← Ra % Rb（余数）· ALUMODE 1110"
+      },
+      {
+        "opcode": 39,
+        "mnemonic": "SFT",
+        "format": "R",
+        "description": "Rw ← Ra 移位（Rb低5位）· ALUMODE 0100"
+      },
+      {
+        "opcode": 40,
+        "mnemonic": "AND",
+        "format": "R",
+        "description": "Rw ← Ra & Rb · ALUMODE 0101"
+      },
+      {
+        "opcode": 41,
+        "mnemonic": "NAND",
+        "format": "R",
+        "description": "Rw ← ~(Ra & Rb) · ALUMODE 0110"
+      },
+      {
+        "opcode": 42,
+        "mnemonic": "OR",
+        "format": "R",
+        "description": "Rw ← Ra | Rb · ALUMODE 0111"
+      },
+      {
+        "opcode": 43,
+        "mnemonic": "NOR",
+        "format": "R",
+        "description": "Rw ← ~(Ra | Rb) · ALUMODE 1000"
+      },
+      {
+        "opcode": 44,
+        "mnemonic": "XOR",
+        "format": "R",
+        "description": "Rw ← Ra ^ Rb · ALUMODE 1001"
+      },
+      {
+        "opcode": 45,
+        "mnemonic": "XNOR",
+        "format": "R",
+        "description": "Rw ← ~(Ra ^ Rb) · ALUMODE 1010"
+      },
+      {
+        "opcode": 46,
+        "mnemonic": "NOT",
+        "format": "R",
+        "description": "Rw ← ~Ra · ALUMODE 1011"
+      },
+      {
+        "opcode": 47,
+        "mnemonic": "CMP",
+        "format": "R",
+        "description": "Ra - Rb，只更新C、Z · ALUMODE 0001"
+      },
+      {
+        "opcode": 48,
+        "mnemonic": "JMP",
+        "format": "I",
+        "description": "PC ← addr（无条件）"
+      },
+      {
+        "opcode": 49,
+        "mnemonic": "JCC",
+        "format": "I",
+        "description": "若条件满足则 PC ← addr"
+      },
+      {
+        "opcode": 50,
+        "mnemonic": "JPR",
+        "format": "R",
+        "description": "PC ← Ra（间接）"
+      },
+      {
+        "opcode": 51,
+        "mnemonic": "JRC",
+        "format": "R",
+        "description": "若条件满足则 PC ← Ra"
+      },
+      {
+        "opcode": 52,
+        "mnemonic": "CALL",
+        "format": "I",
+        "description": "压栈返回地址，PC ← addr"
+      },
+      {
+        "opcode": 53,
+        "mnemonic": "CAC",
+        "format": "I",
+        "description": "若条件满足则 CALL"
+      },
+      {
+        "opcode": 54,
+        "mnemonic": "RET",
+        "format": "R",
+        "description": "弹栈返回地址，PC ← M[SP]"
+      },
+      {
+        "opcode": 55,
+        "mnemonic": "INT",
+        "format": "I",
+        "description": "软中断：压栈PC+FLAGS，PC ← addr"
+      },
+      {
+        "opcode": 56,
+        "mnemonic": "CINT",
+        "format": "I",
+        "description": "若条件满足则 INT"
+      },
+      {
+        "opcode": 57,
+        "mnemonic": "IRET-BAN",
+        "format": "R",
+        "description": "非法指令中断返回：恢复FLAGS和PC"
+      },
+      {
+        "opcode": 58,
+        "mnemonic": "EI-BAN",
+        "format": "R",
+        "description": "非法指令开中断（IE ← 1）"
+      },
+      {
+        "opcode": 59,
+        "mnemonic": "DI-BAN",
+        "format": "R",
+        "description": "非法指令关中断（IE ← 0）"
+      },
+      {
+        "opcode": 64,
+        "mnemonic": "PUSH",
+        "format": "R",
+        "description": "SP ← SP+1，M[SP] ← Ra"
+      },
+      {
+        "opcode": 65,
+        "mnemonic": "POP",
+        "format": "R",
+        "description": "Rw ← M[SP]，SP ← SP-1"
+      },
+      {
+        "opcode": 66,
+        "mnemonic": "LSP",
+        "format": "R",
+        "description": "SP ← Ra（设置栈指针）"
+      },
+      {
+        "opcode": 67,
+        "mnemonic": "OSP",
+        "format": "R",
+        "description": "Rw ← SP（读取栈指针）"
+      },
+      {
+        "opcode": 68,
+        "mnemonic": "FTS",
+        "format": "R",
+        "description": "SP ← FP（从帧指针设置栈指针）"
+      },
+      {
+        "opcode": 69,
+        "mnemonic": "STF",
+        "format": "R",
+        "description": "FP ← SP（从栈指针设置帧指针）"
+      },
+      {
+        "opcode": 70,
+        "mnemonic": "PUSHFP",
+        "format": "R",
+        "description": "FP值压栈"
+      },
+      {
+        "opcode": 71,
+        "mnemonic": "POPFP",
+        "format": "R",
+        "description": "弹栈至FP"
+      },
+      {
+        "opcode": 80,
+        "mnemonic": "SMUL",
+        "format": "R",
+        "description": "有符号乘法"
+      },
+      {
+        "opcode": 81,
+        "mnemonic": "SDIV",
+        "format": "R",
+        "description": "有符号除法"
+      },
+      {
+        "opcode": 82,
+        "mnemonic": "SREM",
+        "format": "R",
+        "description": "有符号取余"
+      },
+      {
+        "opcode": 83,
+        "mnemonic": "SSFT",
+        "format": "R",
+        "description": "有符号算术左移"
+      },
+      {
+        "opcode": 96,
+        "mnemonic": "PUSHU-BAN",
+        "format": "R",
+        "description": "非法指令控制用户栈SP ← SP+1，M[SP] ← Ra"
+      },
+      {
+        "opcode": 97,
+        "mnemonic": "POPU-BAN",
+        "format": "R",
+        "description": "非法指令控制用户栈Rw ← M[SP]，SP ← SP-1"
+      },
+      {
+        "opcode": 240,
+        "mnemonic": "HALT-BAN",
+        "format": "R",
+        "description": "非法指令停机"
+      }
+    ],
+    "templates": [
+      {
+        "id": "1c405a2e-ad60-49e1-a878-a967201e1d68",
+        "name": "取指",
+        "words": [
+          "0F001010",
+          "0F600020",
+          "0F002080"
+        ]
+      }
+    ],
+    "customRules": [
+      {
+        "id": "fadd7d6f-0f16-4620-8b0d-ea594bec519d",
+        "type": "mutex",
+        "severity": "error",
+        "signalIds": [
+          "dae92ab8-d69c-4559-80c2-fc7eccf87808",
+          "e9ac01be-963c-40ee-a49e-cec2fa5d7c98"
+        ]
+      },
+      {
+        "id": "3be1ac02-9c6f-480f-87ac-2ed558b29943",
+        "type": "mutex",
+        "severity": "error",
+        "signalIds": [
+          "0815828a-b32f-4f8d-bda6-4eedd9435d3e",
+          "013b0af5-5197-458f-a193-58b8bf42f7cd"
+        ]
+      },
+      {
+        "id": "1ec46525-0e3b-4209-bfd3-25fa9210645a",
+        "type": "mutex",
+        "severity": "error",
+        "signalIds": [
+          "e1bffc50-dde5-4ec2-8a9d-203c287f7c13",
+          "e8524f0f-7b35-47d5-9db9-543fec88397d"
+        ]
+      },
+      {
+        "id": "30548f6d-bd7b-43b4-ab03-16c7296e702e",
+        "type": "mutex",
+        "severity": "error",
+        "signalIds": [
+          "1492f1ba-52e9-447c-8975-27fc66726e12",
+          "2eb711a1-3668-4925-8173-b02e0293476a"
+        ]
+      }
+    ],
+    "appSettings": {
+      "restoreLastFile": true,
+      "autoCompress": false,
+      "animations": true,
+      "assemblyTabSize": 4,
+      "assemblyAutocomplete": true,
+      "checkBeforeSave": true,
+      "autoExpandProblems": true,
+      "autoSaveProject": true,
+      "autoSaveHex": true,
+      "customasmRuleHeader": "#bankdef global\n{\n    bits = 32\n    addr = 0x00000000\n    size = 0x00FFFFFF\n    outp = 0\n\tlabelalign = 32\n}\n#bank global\n#addr 0x00000000\n#subruledef src\n{\n\trom[{inner_addr: u24}] => 0x00 @ inner_addr`24\n    ram[{inner_addr: u24}] => 0x01 @ inner_addr`24\n    sp[{inner_addr: u24}] => 0x02 @ inner_addr`24\n\tivt[{inner_addr: u24}] => 0x03 @ inner_addr`24\n\tkeyboard => 0x04000000\n\tterminal => 0x05000000\n\ttelnet => 0x06000000\n}\n#subruledef cond\n{\n\tc => 0x1\n    z => 0x2\n\tb => 0x3\n    nc => 0x4\n\tnz => 0x5\n\tnb => 0x6\n}\n#ruledef\n{\n\tNOP => 0x00000000\n\n\tMOV r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x10\n    ILD r{reg_w: u4}, r{reg_b: u4} => 0x0000 @ reg_b`4 @ reg_w`4 @ 0x11\n\tIST r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x012\n\tLDR r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x13 @ addr`32\n\tSTR r{reg_a: u4}, {addr: src} => 0x000 @ reg_a`4 @ 0x00 @ 0x14 @ addr`32\n\tLDI r{reg_w: u4}, {value: u32} => 0x00000 @ reg_w`4 @ 0x15 @ value`32\n\tLDA r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDC r{reg_w: u4}, {addr: u32} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDO r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x17\n\n\tADD r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x20\n\tSUB r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x21\n\tINC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x22\n\tDEC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x23\n\tMUL r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x24\n\tDIV r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x25\n\tREM r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x26\n\tSFT r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x27\n\tAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x28\n\tNAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x29\n\tOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2A\n\tNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2B\n\tXOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2C\n\tXNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2D\n\tNOT r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x2E\n\tCMP r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x02F\n\n\tJMP {addr: u32} => 0x00000030 @ addr`32\n\tJCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32\n\tJPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032\n\tJRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033\n\tCALL {addr: u32} => 0x000000 @ 0x34 @ addr`32\n\tCAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32\n\tRET => 0x00000036\n\tINT {addr: u32} => 0x00000037 @ addr`32\n\tCINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32\n\tIRET => 0x00000039\n\tEI => 0x0000003A\n\tDI => 0x0000003B\n\n\tPUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040\n\tPOP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41\n\tLSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042\n    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43\n\n\tHALT => 0x000000F0\n}\n; customasm <file_path> -f list,base:16,group:8,between:\" \",before:\"v2.0 raw\\n\",after:\"\" -o <output_path>"
+    }
+  }
+}
