@@ -34,7 +34,7 @@ $entryDefine = '-DAURORA_SYSCALL_ENTRY_ADDRESS=0x{0:X8}' -f $entryWordAddress
 $commonArguments = @(
   '-target', 'aurora', '-x', 'c', '-std=c11', '-ffreestanding',
   '-fomit-frame-pointer', '-O2', '-I', (Join-Path $PSScriptRoot 'include'),
-  $entryDefine
+  '-DAURORA_USER_API_ONLY=1', $entryDefine
 )
 
 function Build-UserProgram([string]$DirectoryName, [string]$SourceName,
@@ -51,6 +51,15 @@ function Build-UserProgram([string]$DirectoryName, [string]$SourceName,
 
   & $clang @commonArguments @ExtraArguments -S $source -o $assembly
   if ($LASTEXITCODE -ne 0) { throw "$OutputName assembly generation failed" }
+
+  $privilegedInstructions = Select-String -LiteralPath $assembly -Pattern `
+    '^\s*(ei|di|halt|iret|pushu|popu)(\s|$)'
+  if ($privilegedInstructions) {
+    $first = $privilegedInstructions | Select-Object -First 1
+    throw ("$OutputName contains a kernel-only instruction at assembly " +
+      "line $($first.LineNumber): $($first.Line.Trim())")
+  }
+
   & $clang @commonArguments @ExtraArguments -c $source -o $object
   if ($LASTEXITCODE -ne 0) { throw "$OutputName object generation failed" }
   & $objcopy -O binary --only-section=.text $object $binary

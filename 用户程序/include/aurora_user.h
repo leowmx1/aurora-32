@@ -29,9 +29,10 @@ __attribute__((naked, noinline, used, noreturn)) static void
 __aurora_callback_return_trampoline(void) {
   __asm__ volatile(
       "  ldi r0, 0x00000007\n"
-      "  di\n"
       "  int " AURORA_STRINGIFY(AURORA_SYSCALL_ENTRY_ADDRESS) "\n"
-      "  halt\n");
+      ".L__aurora_callback_return_failed:\n"
+      "  nop\n"
+      "  jmp .L__aurora_callback_return_failed\n");
 }
 
 /*
@@ -46,10 +47,9 @@ aurora_syscall(aurora_word_t request, aurora_word_t arg0,
   register aurora_word_t r1 __asm__("r1") = arg0;
   register aurora_word_t r2 __asm__("r2") = arg1;
   register aurora_word_t r3 __asm__("r3") = arg2;
-  /* Close the interval between software-INT entry and the kernel entry's
-   * first DI.  Otherwise a hardware IRQ in that interval observes a
-   * kernel-mode INT frame while current_process still denotes the user. */
-  __asm__ volatile("di\n  int " AURORA_STRINGIFY(AURORA_SYSCALL_ENTRY_ADDRESS)
+  /* INT atomically clears IE while entering the kernel, so user code must
+   * not execute DI before making a system call. */
+  __asm__ volatile("int " AURORA_STRINGIFY(AURORA_SYSCALL_ENTRY_ADDRESS)
                    : "+r"(r0)
                    : "r"(r1), "r"(r2), "r"(r3)
                    : "memory");

@@ -30,4 +30,7 @@ include/
 
 脚本从 `../系统内核/build/kernel.o` 查找 `aurora_syscall_entry`，把实际 ROM
 字地址编译进所有用户程序的 `INT` 指令。脚本同时验证每个用户二进制都
-以 UROM 入口跳转开始，且目标落在 `0x08000000-0x08ffffff`。
+以 UROM 入口跳转开始，且目标落在 `0x08000000-0x08ffffff`。用户构建只
+暴露非特权 `aurora` API，并拒绝任何含有 `EI`、`DI`、`HALT`、`IRET`、
+`PUSHU` 或 `POPU` 的生成汇编。系统调用只需执行 `INT`；该指令在进入
+内核时由硬件自动清除 IE。
