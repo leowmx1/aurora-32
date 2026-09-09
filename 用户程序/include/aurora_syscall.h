@@ -21,7 +21,7 @@ enum {
   AURORA_IVT_TELNET = 0x03000002u,
   AURORA_IVT_USER_MEMORY_FAULT = 0x03000004u,
   AURORA_IVT_USER_ILLEGAL_INSTRUCTION = 0x03000005u,
-  AURORA_IVT_TIMER = 0x03000007u,
+  AURORA_IVT_TICK = 0x03000007u,
 };
 
 enum {
@@ -34,6 +34,8 @@ enum {
   AURORA_SYSCALL_CONSOLE_PUTSTRING = 6,
   /* Used only by the user-mode callback return trampoline. */
   AURORA_SYSCALL_CALLBACK_RETURN = 7,
+  /* r1 contains the signed 32-bit process exit code.  This never returns. */
+  AURORA_SYSCALL_PROCESS_EXIT = 8,
 };
 
 enum {

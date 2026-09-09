@@ -12,11 +12,13 @@ __asm__(
     "  jmp _start\n");
 
 enum {
-  AURORA_UROM_BEGIN = 0x08000000u,
-  AURORA_UROM_END = 0x09000000u,
-  AURORA_URAM_BEGIN = 0x09000000u,
-  AURORA_URAM_END = 0x0A000000u,
-  AURORA_TIMER_DEVICE = 0x07000000u,
+  AURORA_UROM_BEGIN = 0x80000000u,
+  AURORA_UROM_END = 0x81000000u,
+  AURORA_URAM_BEGIN = 0x81000000u,
+  AURORA_URAM_END = 0x82000000u,
+  AURORA_TICK_DEVICE = 0x07000000u,
+  /* Read-only kernel device: system uptime in milliseconds modulo 2^32. */
+  AURORA_TIMER_DEVICE = 0x08000000u,
   AURORA_USER_KERNEL_STACK = 0x02010000u,
   AURORA_CALLBACK_KERNEL_STACK_0 = 0x02020000u,
   AURORA_CALLBACK_KERNEL_STACK_1 = 0x02030000u,
@@ -51,11 +53,12 @@ static volatile aurora_word_t keyboard_irq_sequence;
  * this CPU's physical signed shift-count convention is target-specific. */
 static volatile aurora_word_t keyboard_event_radix = 256u;
 static volatile aurora_word_t user_fault_vector;
+static volatile aurora_word_t user_exit_code;
 static volatile aurora_process_context process_table[PROCESS_COUNT];
 static volatile aurora_word_t current_process;
 
 extern void aurora_syscall_entry(void);
-void aurora_timer_irq(void);
+void aurora_tick_irq(void);
 void aurora_keyboard_irq(void);
 __attribute__((interrupt)) void aurora_user_memory_fault(void);
 __attribute__((interrupt)) void aurora_user_illegal_instruction(void);
@@ -103,6 +106,73 @@ static void kernel_console_put_int(aurora_word_t bits) {
   }
   while (count != 0u)
     aurora.io.PutChar('0' + digits[--count]);
+}
+
+/* Boot messages use kernel-resident string literals, so they must not pass
+ * through the user-pointer validation used by the PUT_STRING system call. */
+static void kernel_boot_put_string(const char *text) {
+  while (*text != '\0') {
+    aurora.io.PutChar((aurora_word_t)*text);
+    ++text;
+  }
+}
+
+static void kernel_status_prefix(void) {
+  aurora_word_t milliseconds = aurora.Read(AURORA_TIMER_DEVICE);
+
+  aurora.io.PutChar('[');
+  kernel_console_put_int(milliseconds);
+  kernel_boot_put_string(" ms");
+  aurora.io.PutChar(']');
+  aurora.io.PutChar(' ');
+}
+
+static void kernel_boot_status(const char *message) {
+  kernel_status_prefix();
+  kernel_boot_put_string(message);
+  aurora.io.PutChar('\n');
+}
+
+static void mark_user_not_runnable(void) {
+  volatile aurora_process_context *user = &process_table[PROCESS_USER];
+
+  user->valid = 0u;
+  user->subscribed_vector = 0u;
+  user->callback = (aurora_keyboard_callback_t)0;
+  user->callback_trampoline = 0u;
+  user->callback_restore_ksp = 0u;
+  user->callback_active = 0u;
+}
+
+static void kernel_fault_spacing(void) {
+  aurora.io.PutChar('\n');
+  aurora.io.PutChar('\n');
+  aurora.io.PutChar('\n');
+}
+
+__attribute__((noinline, noreturn)) static void
+halt_after_user_fault(const char *message) {
+  /* No runnable user process remains in the current fixed two-process model. */
+  mark_user_not_runnable();
+
+  kernel_fault_spacing();
+  kernel_boot_status(message);
+  kernel_boot_status("Nothing to do. Halt.");
+  aurora.Halt();
+}
+
+__attribute__((noinline, noreturn)) static void
+halt_after_user_exit(aurora_word_t exit_code) {
+  user_exit_code = exit_code;
+  mark_user_not_runnable();
+
+  kernel_fault_spacing();
+  kernel_status_prefix();
+  kernel_boot_put_string("USER_PROCESS exited with code ");
+  kernel_console_put_int(exit_code);
+  kernel_boot_put_string(".\n");
+  kernel_boot_status("Nothing to do. Halt.");
+  aurora.Halt();
 }
 
 static aurora_status_t kernel_console_put_string(aurora_word_t address) {
@@ -275,7 +345,7 @@ static void initialize_processes(void) {
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
 
   current_process = PROCESS_SYSTEM;
-  system->valid = 0u; /* Captured by the first timer interrupt. */
+  system->valid = 0u; /* Captured by the first tick interrupt. */
 
   for (aurora_word_t i = 0; i < 16u; ++i)
     user->r[i] = 0u;
@@ -306,7 +376,7 @@ static void initialize_processes(void) {
  * private kernel stack; switching only selects another saved frame top.
  */
 __attribute__((noinline, optnone)) aurora_word_t
-aurora_schedule_from_timer(aurora_word_t stack_top) {
+aurora_schedule_from_tick(aurora_word_t stack_top) {
   /* This first scheduler deliberately has two fixed processes.  Keeping the
    * PCB addresses explicit also avoids the old backend's pathological DAG for
    * a global-array address with a run-time index passed to a call. */
@@ -329,23 +399,43 @@ aurora_schedule_from_timer(aurora_word_t stack_top) {
 __attribute__((noreturn)) void _start(void) {
   /* In kernel mode this denotes KSP initialization. */
   aurora.SetUpStackPointer();
+  kernel_boot_status("kernel stack initialized");
+
   aurora.DisableInterrupt();
+  kernel_boot_status("interrupts disabled");
+
   keyboard_read = 0;
   keyboard_write = 0;
   keyboard_irq_sequence = 0;
   user_fault_vector = 0;
+  user_exit_code = 0;
+  kernel_boot_status("kernel state initialized");
+
   initialize_processes();
+  kernel_boot_status("process contexts initialized");
 
   /* Hardware IRQs/exceptions go through IVT; software INT does not. */
   aurora.interrupt.Register(AURORA_IVT_USER_MEMORY_FAULT,
                             aurora_user_memory_fault);
   aurora.interrupt.Register(AURORA_IVT_USER_ILLEGAL_INSTRUCTION,
                             aurora_user_illegal_instruction);
+  kernel_boot_status("exception handlers installed");
+
   aurora.interrupt.Register(AURORA_IVT_KEYBOARD, aurora_keyboard_irq);
-  aurora.interrupt.Register(AURORA_IVT_TIMER, aurora_timer_irq);
-  aurora.EnableInterrupt();
+  kernel_boot_status("keyboard interrupt installed");
+
+  aurora.interrupt.Register(AURORA_IVT_TICK, aurora_tick_irq);
+  kernel_boot_status("tick scheduler installed");
+
+  /* Finish all boot output before enabling preemption so user output cannot
+   * be interleaved with the startup banner. */
+  kernel_boot_status("startup complete");
+  aurora.io.PutChar('\n');
+  aurora.io.PutChar('\n');
+  aurora.io.PutChar('\n');
 
   /* Boot-to-user transfer needs a hardware-defined initial IRET frame. */
+  aurora.EnableInterrupt();
   for (;;)
     aurora.Nop();
 }
@@ -405,21 +495,21 @@ __attribute__((naked, noinline)) void aurora_keyboard_irq(void) {
 __attribute__((interrupt)) void aurora_user_memory_fault(void) {
   user_fault_vector = AURORA_IVT_USER_MEMORY_FAULT;
   /* No ISA operation can replace the saved user PC, so retrying would loop. */
-  aurora.Halt();
+  halt_after_user_fault("Memory access violation in USER_PROCESS.");
 }
 
 __attribute__((interrupt)) void aurora_user_illegal_instruction(void) {
   user_fault_vector = AURORA_IVT_USER_ILLEGAL_INSTRUCTION;
-  aurora.Halt();
+  halt_after_user_fault("Illegal instruction in USER_PROCESS.");
 }
 
 /*
  * Dedicated preemptive-switch entry.  Save r0 before using it to acknowledge
- * the timer, then save the other GPRs.  The C helper returns the prepared
+ * the tick device, then save the other GPRs.  The C helper returns the prepared
  * next-process stack top in r0.  Switching KSP makes the following pops and
  * IRET restore that process rather than the interrupted one.
  */
-__attribute__((naked, noinline)) void aurora_timer_irq(void) {
+__attribute__((naked, noinline)) void aurora_tick_irq(void) {
   __asm__ volatile(
     "  push r0\n"
     "  ldi r0, 0x07000000\n"
@@ -440,7 +530,7 @@ __attribute__((naked, noinline)) void aurora_timer_irq(void) {
     "  push r14\n"
     "  push r15\n"
     "  osp r0\n"
-    "  call aurora_schedule_from_timer\n"
+    "  call aurora_schedule_from_tick\n"
     "  lsp r0\n"
     "  pop r15\n"
     "  pop r14\n"
@@ -504,6 +594,10 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
     if (current_process != PROCESS_USER || !user->callback_active)
       return AURORA_EINVAL;
     return (aurora_status_t)AURORA_CALLBACK_RESTORE_MAGIC;
+  case AURORA_SYSCALL_PROCESS_EXIT:
+    if (current_process != PROCESS_USER)
+      return AURORA_EINVAL;
+    halt_after_user_exit(arg0);
   default:
     return AURORA_ENOSYS;
   }

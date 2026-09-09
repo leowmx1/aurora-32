@@ -3,8 +3,17 @@
   "hexFile": "micro_code.hex",
   "preferences": {
     "version": 1,
-    "wordWidth": 36,
+    "wordWidth": 37,
     "rules": [
+      {
+        "id": "7b2cafe1-e4a3-4c02-972f-a9229a30cfab",
+        "name": "HALT",
+        "description": "停机",
+        "lsb": 36,
+        "width": 1,
+        "type": "component-operation",
+        "inactiveValue": 0
+      },
       {
         "id": "7966d1fd-c5ea-4dcd-bb07-a1f195539150",
         "name": "Kernel Use USP",

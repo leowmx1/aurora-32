@@ -8,7 +8,7 @@
 include/
   aurora_syscall.h       内核/用户共享 ABI
   aurora_user.h          INT 封装、键盘订阅与回调返回跳板
-  aurora_system.h        system.io 高层接口
+  aurora_system.h        system.io 与 system.Exit 高层接口
 
 程序/
   calculator/            中断回调驱动的表达式求值器
@@ -30,7 +30,11 @@ include/
 
 脚本从 `../系统内核/build/kernel.o` 查找 `aurora_syscall_entry`，把实际 ROM
 字地址编译进所有用户程序的 `INT` 指令。脚本同时验证每个用户二进制都
-以 UROM 入口跳转开始，且目标落在 `0x08000000-0x08ffffff`。用户构建只
+以 UROM 入口跳转开始，且目标落在 `0x80000000-0x80ffffff`。用户构建只
 暴露非特权 `aurora` API，并拒绝任何含有 `EI`、`DI`、`HALT`、`IRET`、
 `PUSHU` 或 `POPU` 的生成汇编。系统调用只需执行 `INT`；该指令在进入
 内核时由硬件自动清除 IE。
+
+用户进程可调用 `system.Exit(exit_code)` 主动退出。系统调用 ABI 使用
+`r0=8` 表示退出请求，`r1` 传递有符号 32 位退出码。当前双进程
+模型在输出退出日志后停机。

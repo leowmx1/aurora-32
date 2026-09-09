@@ -47,6 +47,10 @@ function Build-UserProgram([string]$DirectoryName, [string]$SourceName,
   $object = Join-Path $outputDirectory "$OutputName.o"
   $binary = Join-Path $outputDirectory "$OutputName.bin"
   $hex = Join-Path $outputDirectory "$OutputName.hex"
+  if (-not (Test-Path -LiteralPath $source)) {
+    Write-Warning "Skipping missing user program source: $source"
+    return
+  }
   New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
   & $clang @commonArguments @ExtraArguments -S $source -o $assembly
@@ -70,7 +74,11 @@ function Build-UserProgram([string]$DirectoryName, [string]$SourceName,
     throw "$OutputName does not start with the required UROM JMP entry"
   }
   $uromEntry = [BitConverter]::ToUInt32($imageBytes, 4)
-  if ($uromEntry -lt 0x08000000 -or $uromEntry -ge 0x09000000) {
+  $uromEntryUnsigned = [uint64]$uromEntry
+  $uromBegin = [uint64]2147483648  # 0x80000000
+  $uromEnd = [uint64]2164260864    # 0x81000000
+  if ($uromEntryUnsigned -lt $uromBegin -or
+      $uromEntryUnsigned -ge $uromEnd) {
     throw ('{0} has an invalid UROM entry target: 0x{1:X8}' -f `
       $OutputName, $uromEntry)
   }

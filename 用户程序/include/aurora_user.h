@@ -11,14 +11,15 @@
 #define AURORA_STRINGIFY_IMPL(value) #value
 #define AURORA_STRINGIFY(value) AURORA_STRINGIFY_IMPL(value)
 
-/* UROM always starts at word address 0x08000000.  Keep its first instruction
+/* UROM always starts at word address 0x80000000.  Keep its first instruction
  * independent of C function emission order: helpers such as the callback
  * trampoline are allowed to appear before _start in the object file.  Aurora
- * assembly symbols are byte based, hence 0x20000000 bytes = 0x08000000 words. */
+ * assembly symbols are byte based, hence 0x200000000 bytes = 0x80000000
+ * words. */
 __asm__(
     ".globl __aurora_urom_entry\n"
     "__aurora_urom_entry:\n"
-    "  jmp _start+536870912\n");
+    "  jmp _start+8589934592\n");
 
 /*
  * A hardware-delivered callback returns here with an ordinary RET. The INT
@@ -54,6 +55,17 @@ aurora_syscall(aurora_word_t request, aurora_word_t arg0,
                    : "r"(r1), "r"(r2), "r"(r3)
                    : "memory");
   return (aurora_status_t)r0;
+}
+
+/* Terminate the current user process.  ABI: r0=request, r1=exit code.
+ * The fallback loop is reached only if a broken kernel returns from a
+ * successful PROCESS_EXIT request; it uses no privileged instructions. */
+static __inline__ __attribute__((always_inline, noreturn)) void
+aurora_process_exit(int exit_code) {
+  (void)aurora_syscall(AURORA_SYSCALL_PROCESS_EXIT,
+                       (aurora_word_t)exit_code, 0u, 0u);
+  for (;;)
+    __asm__ volatile("nop");
 }
 
 static __inline__ __attribute__((always_inline)) aurora_status_t

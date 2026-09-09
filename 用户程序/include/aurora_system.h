@@ -12,6 +12,7 @@ typedef struct aurora_system_io_api {
 
 typedef struct aurora_system_api {
   aurora_system_io_api io;
+  void (*Exit)(int exit_code);
 } aurora_system_api;
 
 static __inline__ __attribute__((always_inline)) aurora_status_t
@@ -38,11 +39,16 @@ __aurora_system_put_string(const char *text) {
                         (aurora_word_t)(unsigned long)text, 0, 0);
 }
 
+static __inline__ __attribute__((always_inline, noreturn)) void
+__aurora_system_exit(int exit_code) {
+  aurora_process_exit(exit_code);
+}
+
 static const aurora_system_api system = {{
     __aurora_system_put_char,
     __aurora_system_get_char,
     __aurora_system_put_int,
     __aurora_system_put_string,
-}};
+}, __aurora_system_exit};
 
 #endif

@@ -24,7 +24,6 @@ volatile int current_value;
 volatile int last_ans = 0;
 volatile int has_ans = 0;
 volatile int err_flag;
-volatile int quit_requested;
 /* Suppress every trailing CR/LF IRQ after one accepted Enter.  The first
  * ordinary character starts the next input transaction. */
 volatile int discard_line_endings;
@@ -96,7 +95,6 @@ __attribute__((noreturn)) void _start(void) {
     has_digit = 0;
     current_value = 0;
     err_flag = 0;
-    quit_requested = 0;
     calculation_stack_pointer = 0;
 
     system.io.PutString("Enter expression, end with <Enter>:\n>> ");
@@ -142,16 +140,23 @@ __attribute__((noreturn)) void _start(void) {
     }
     input_queue_read = input_queue_write;
 
-    if (quit_requested) {
-      for (;;)
-        aurora.Nop();
-    }
-
     if (token_count < 0) {
       system.io.PutString("InputError: No input received.\n");
       err_flag = 1;
       continue;
     }
+
+#ifdef AURORA_CALCULATOR_TRACE
+    system.io.PutString("{P:tc=");
+    system.io.PutInt(token_count);
+    system.io.PutString(",t0=");
+    system.io.PutInt(tokens[0]);
+    system.io.PutString(",v0=");
+    system.io.PutInt(tokens[1]);
+    system.io.PutString(",sp=");
+    system.io.PutInt(calculation_stack_pointer);
+    system.io.PutString("}");
+#endif
 
     int original_stack_pointer = STACK_POINTER();
     int post_expr_pointer = 0;
@@ -220,6 +225,18 @@ __attribute__((noreturn)) void _start(void) {
       post_expr_pointer++;
     }
 
+#ifdef AURORA_CALCULATOR_TRACE
+    system.io.PutString("{R:pp=");
+    system.io.PutInt(post_expr_pointer);
+    system.io.PutString(",p0=");
+    system.io.PutInt(post_expr[0]);
+    system.io.PutString(",v0=");
+    system.io.PutInt(post_expr[1]);
+    system.io.PutString(",sp=");
+    system.io.PutInt(calculation_stack_pointer);
+    system.io.PutString("}");
+#endif
+
     for (int i = 0; i < post_expr_pointer && !err_flag; i++) {
       if (post_expr[i * 2] == 0x1) {
         STACK_PUSH(post_expr[i * 2 + 1]);
@@ -281,6 +298,16 @@ __attribute__((noreturn)) void _start(void) {
       }
     }
 
+#ifdef AURORA_CALCULATOR_TRACE
+    system.io.PutString("{E:sp=");
+    system.io.PutInt(calculation_stack_pointer);
+    system.io.PutString(",base=");
+    system.io.PutInt(original_stack_pointer);
+    system.io.PutString(",err=");
+    system.io.PutInt(err_flag);
+    system.io.PutString("}");
+#endif
+
     if (!err_flag &&
         STACK_POINTER() - original_stack_pointer != 1) {
       system.io.PutString("SyntaxError: Invalid expression.\n");
@@ -333,10 +360,8 @@ process_input(aurora_word_t input_character) {
     return;
 
   if (c == 'Q') {
-    system.io.PutString("Quit.");
-    quit_requested = 1;
-    input_done = INPUT_COMPLETE;
-    return;
+    system.io.PutString("\nQuit.");
+    system.Exit(0);
   }
 
   if (c == ' ') {
