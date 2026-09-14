@@ -28,7 +28,18 @@ INCLUDE、LIB、LIBPATH；编译器和头文件通过包内路径定位。
 上述完整验证，五套输出仍一致。[机器可读对比记录](verification-results.json)
 保留了每个镜像的 SHA-256。总构建入口现已移到 `build-tools/build.ps1`，根目录不再放置
 构建脚本。入口移动后再次用正式目录和独立路径完成全部构建，五套输出仍一致。
-当前工具 manifest 内 319 个文件的哈希均通过校验；迁移时的 Git 对象完整性也已通过检查。
+加入一行用户编译入口后，工具 manifest 包含 320 个文件；迁移时的 Git 对象完整性也已通过检查。
+
+## 任意用户 C 文件的一行构建
+
+`build-tools/build-user.ps1` 已验证自动构建内核、读取 syscall 地址，并把 `.s/.o/.bin/.hex`
+放在外部源码所在目录的 `build/`。测试路径同时包含中文、空格和方括号，且源码包含
+同目录本地头文件。Windows PowerShell 5.1 下还测试了从另一当前目录传入相对路径，
+PATH 只保留 System32，清除编译器 include/library 环境覆盖；生成机器码与绝对路径一致。
+
+显式 `-KernelObject` 不重建内核。缺失文件、非 C 文件和目录参数均被拒绝，未改变已有
+产物。针对 PowerShell 5.1 方括号目录的转义行为使用 provider 路径 API 解析，避免把
+转义反引号当成实际路径字符。此验证不代替用户代码在 CPU 电路上的运行测试。
 
 另外已单独执行 Clang 生成内核 LLVM IR、opt 校验 IR、llc 的 `-verify-machineinstrs`
 后端编译。文档的相对链接全部检查通过；脚本、活动源文件及配置中不再依赖旧的

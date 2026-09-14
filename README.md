@@ -17,6 +17,16 @@ Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 ```
 
 脚本先编译内核，再读取内核实际系统调用入口，编译全部现存用户程序。
+
+编译自己的用户 C 文件只需一行，文件可以位于项目外：
+
+```powershell
+.\build-tools\build-user.ps1 "C:\my-project\main.c"
+```
+
+脚本自动构建配套内核并取得系统调用地址，生成 `C:\my-project\build\main.hex`
+及同名 `.s/.o/.bin`，不用登记到示例清单。
+
 不需要安装 LLVM、Visual Studio、CMake、Ninja 或 customasm。
 需要 Windows 10/11 x64 和 PowerShell；终端执行策略如果禁止本地脚本，
 可以用 `powershell -NoProfile -ExecutionPolicy Bypass -File .\build-tools\build.ps1`。

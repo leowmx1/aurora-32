@@ -20,6 +20,7 @@
 | `lib/clang/24/include/` | 整套 Clang resource headers，包含定制 `aurora.h` |
 | `include/` | 三个项目用户 ABI 头文件的打包快照 |
 | `build.ps1` | 总构建入口，先内核再用户程序，可用 -Program 选择目标 |
+| `build-user.ps1` | 任意单个用户 C 文件的一行编译入口，自动确定产物目录和系统调用地址 |
 | `compile.ps1` | 公共 C→汇编/对象→bin→HEX 构建流程及校验 |
 | `bin-to-logisim.ps1` | 每 4 个小端字节转换为一个 32 位十六进制字 |
 | `toolchain-manifest.json` | 工具/头文件/脚本的 SHA-256、大小和来源版本信息 |
@@ -64,8 +65,38 @@ tic-tac-toe、guess-number。只构建内核或使用现有内核对象：
 .\build-tools\compile.ps1 .\kernel\kernel.c .\kernel\build\kernel.hex -Mode kernel
 ```
 
-用户程序应使用 user-programs/build.ps1 获取实际 INT 地址；不要把下面的诊断命令
+新用户文件使用 build-tools/build-user.ps1，已有示例也可使用 user-programs/build.ps1 获取实际 INT 地址；不要把下面的诊断命令
 输出直接当成已经正确链接系统调用的用户镜像。
+
+## 一行编译自己的用户程序
+
+```powershell
+# 从项目根目录调用；源码可以在任何位置
+.\build-tools\build-user.ps1 "C:\my-project\main.c"
+
+# 从任意目录调用；源码也可以使用相对当前目录的路径
+& "F:\aurora-32\build-tools\build-user.ps1" ".\main.c"
+```
+
+第一个位置参数是 C 源文件路径，支持空格、中文和文件名中的方括号；必须是现存
+`.c` 文件。输出自动位于源码**所在文件夹**的 `build/`，而非工具目录或当前终端目录。
+例如 `C:/my-project/main.c` 生成 `C:/my-project/build/main.s/.o/.bin/.hex`。
+不需要更改 `ValidateSet` 或现有示例清单，输出文件按源文件去掉 `.c` 的名称命名。
+
+默认每次先重建本项目内核，再从新 `kernel.o` 提取系统调用地址，随后调用公共
+`compile.ps1` 进行用户态构建与检查。内核产物仍在项目的 `kernel/build/`。
+运行时应加载这次生成的配套内核，不要继续搭配另一份旧 ROM。
+
+如果明确需要搭配现有内核对象，可以跳过内核重建：
+
+```powershell
+.\build-tools\build-user.ps1 "C:\my-project\main.c" -KernelObject .\kernel\build\kernel.o
+```
+
+源码仍需包含 `<aurora.h>`、`<aurora_system.h>`，声明 `AURORA_USER_PROGRAM;`，
+定义 `_start`，并遵守用户栈初始化和系统 IO 约定。脚本不会修改源码或自动插入
+缺失的入口声明。当前支持单个完整 C 翻译单元，不是通用多对象链接器。
+源码同目录的本地头文件可以照常用 `#include "header.h"`。
 
 ## 构建链路与失败检查
 

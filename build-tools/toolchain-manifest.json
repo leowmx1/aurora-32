@@ -1,5 +1,5 @@
 {
-  "GeneratedAt": "2026-09-14T19:07:24.8868112+08:00",
+  "GeneratedAt": "2026-09-14T21:49:50.5460410+08:00",
   "Platform": "Windows x64",
   "ClangVersion": "clang version 24.0.0git\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: F:\\aurora-32\\build-tools\\bin",
   "ExecutableSource": "F:\\llvm-project\\llvm\\lib\\Target\\Aurora-32\\_build-tools\\bin",
@@ -65,6 +65,11 @@
       "Path": "bin/vcruntime140.dll",
       "Bytes": 178848,
       "SHA256": "19C293AC482FDB882CD29D2B0E6D807419EFDCADA04068F03E5723670895E17D"
+    },
+    {
+      "Path": "build-user.ps1",
+      "Bytes": 3089,
+      "SHA256": "F4809E991A7CB30ABD9BEE6174B87BE54DC1987BED403790BCFEA340FBF49F59"
     },
     {
       "Path": "build.ps1",
@@ -1598,8 +1603,8 @@
     },
     {
       "Path": "README.md",
-      "Bytes": 181,
-      "SHA256": "0A2E11ED3598516765989AB6FFBD1BE5B779ED4F3B87DAC0EA7C06072CCC7C97"
+      "Bytes": 378,
+      "SHA256": "EE2F39DBA0D91559DF664EFA0602F41F03E2A288F9AD35325F1DEE1806D29E57"
     }
   ]
 }

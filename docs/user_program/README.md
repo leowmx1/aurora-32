@@ -34,6 +34,15 @@
 
 ## 新示例的基本约定
 
+自己新增的 C 文件不必加入内置示例清单。在项目根目录执行：
+
+```powershell
+.\build-tools\build-user.ps1 "C:\my-project\main.c"
+```
+
+会自动构建配套内核，并生成源码同目录下 `build/main.hex` 及 `.s/.o/.bin`。
+详情见 [自定义源文件构建](../build-tools/README.md#一行编译自己的用户程序)。
+
 源文件包含 `<aurora.h>` 和 `<aurora_system.h>`，文件作用域声明
 `AURORA_USER_PROGRAM;`，入口定义为不返回的 `_start`，第一项源级操作是
 `aurora.SetUpStackPointer()`。当前编译器在 `_start` 序言中实际设置 USP/UFP，
