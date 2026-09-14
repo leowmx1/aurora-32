@@ -1,0 +1,5 @@
+# Historical source archive only. Generated images are intentionally excluded.
+**/*.hex
+**/*.bin
+**/*.o
+/c/**/*.s

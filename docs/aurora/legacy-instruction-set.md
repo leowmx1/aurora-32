@@ -1,0 +1,240 @@
+# Aurora-32 微程序控制 CPU 指令集手册
+
+> **历史文档，请勿作为现行地址和 ABI 依据。** 本文保留迁移前内容，旧 UROM/URAM/UStack
+> 地址、customasm 优先声明及部分指令约定已过时。当前说明见 [架构文档](README.md)
+> 和 [现行后端指令速查](instruction-set.md)。
+
+本文档以同目录下的 `customasm_rule.asm` 为指令语法与机器码编码的唯一依据。
+
+## 基本架构
+
+- 数据宽度：32 位。
+- 通用寄存器：16 个 32 位寄存器 `R0`～`R15`。
+- 专用寄存器：硬件栈指针 `SP`、硬件帧指针 `FP`。
+- 地址单位：CPU 原生字地址。C、汇编和设备地址均直接使用下表地址，不进行字节地址与字地址换算。
+- 普通指令占 1 个 32 位字；带立即数或绝对地址的指令占 2 个 32 位字。
+- 多寄存器指令通常使用 `Ra`、`Rb` 作为输入，`Rw` 作为输出。
+
+## 地址空间与 customasm 地址语法
+
+| 区域 | 地址范围 | customasm 写法 | 说明 |
+|---|---:|---|---|
+| ROM | `0x00000000`～`0x00FFFFFF` | `rom[0x000000]`～`rom[0xFFFFFF]` | 程序和只读数据 |
+| RAM | `0x01000000`～`0x01FFFFFF` | `ram[0x000000]`～`ram[0xFFFFFF]` | 普通读写内存 |
+| Stack | `0x02000000`～`0x02FFFFFF` | `stack[0x000000]`～`stack[0xFFFFFF]` | 硬件栈区 |
+| IVT | `0x03000000`～`0x03FFFFFF` | `ivt[0x000000]`～`ivt[0xFFFFFF]` | 中断向量表 |
+| Keyboard | `0x04000000` | `keyboard` | 键盘输入 |
+| Terminal | `0x05000000` | `terminal` | 终端输出 |
+| Telnet | `0x06000000` | `telnet` | Telnet 通信 |
+| UROM | `0x08000000`～`0x08FFFFFF` | `urom[0x000000]`～`urom[0xFFFFFF]` | 用户程序和只读数据 |
+| URAM | `0x09000000`～`0x09FFFFFF` | `uram[0x000000]`～`uram[0xFFFFFF]` | 用户普通读写内存 |
+| UStack | `0x0A000000`～`0x0AFFFFFF` | `ustack[0x000000]`～`ustack[0xFFFFFF]` | 用户硬件栈区 |
+
+方括号内的区域内部地址固定为 24 位，规范写成 6 位十六进制。例如 `ram[0x000001]` 对应 CPU 地址 `0x01000001`。
+
+## 指令编码
+
+### 三寄存器 R 型
+
+```text
+31                    20 19    16 15    12 11     8 7       0
++-----------------------+--------+--------+--------+---------+
+|       0（12 位）       |   Ra   |   Rb   |   Rw   | opcode  |
++-----------------------+--------+--------+--------+---------+
+```
+
+具体指令可以只使用其中一部分寄存器字段：
+
+- `MOV/INC/DEC/NOT`：使用 `Ra` 和 `Rw`，`Rb` 字段为 0。
+- `ILD`：使用 `Rb` 和 `Rw`。
+- `IST/CMP`：使用 `Ra` 和 `Rb`。
+- `PUSH/PUSHU/JPR/LSP`：使用 `Ra`。
+- `POP/POPU/OSP`：使用 `Rw`。
+
+### 双字立即数/地址型
+
+第一字包含操作码及寄存器或条件码，第二字是完整的 32 位立即数或地址：
+
+```text
+第 1 字：指令头
+第 2 字：imm32 / addr32
+```
+
+`LDI` 的立即数语法为有符号 `i32`，因此可直接写负数；最终机器码仍保存该数的 32 位补码。
+
+### 条件指令
+
+`JCC`、`CAC` 和 `CINT` 的 4 位条件码位于第一字的 `[23:20]`。`JRC` 同样使用 `[23:20]` 保存条件码，并使用 `[19:16]` 保存目标地址寄存器。
+
+## FLAGS 与条件码
+
+CPU 提供 `C`、`Z`、`N`、`V` 标志：
+
+- `C`：进位或借位相关标志，用于无符号比较。
+- `Z`：结果为零。
+- `N`：结果最高位为 1，即补码结果为负。
+- `V`：有符号溢出。只有 `ADD`、`SUB` 和 `CMP` 产生的 `V` 保证有效；乘法等其他运算后的 `V` 不应使用。
+
+`CMP Ra, Rb` 按 `Ra - Rb` 更新 FLAGS，但不写回结果。其条件码如下：
+
+| 编码 | 条件码 | 判断 | 比较含义 |
+|---:|---|---|---|
+| `0x1` | `c` | `C = 1` | 无符号 `Ra < Rb` |
+| `0x2` | `z` | `Z = 1` | `Ra == Rb` |
+| `0x3` | `b` | `C = 0 && Z = 0` | 无符号 `Ra > Rb` |
+| `0x4` | `nc` | `C = 0` | 无符号 `Ra >= Rb` |
+| `0x5` | `nz` | `Z = 0` | `Ra != Rb` |
+| `0x6` | `nb` | `C = 1 || Z = 1` | 无符号 `Ra <= Rb` |
+| `0x7` | `n` | `N = 1` | 结果为负 |
+| `0x8` | `v` | `V = 1` | 发生有符号溢出 |
+| `0x9` | `lt` | `N != V` | 有符号 `Ra < Rb` |
+| `0xA` | `ge` | `N = V` | 有符号 `Ra >= Rb` |
+| `0xB` | `gt` | `Z = 0 && N = V` | 有符号 `Ra > Rb` |
+| `0xC` | `le` | `Z = 1 || N != V` | 有符号 `Ra <= Rb` |
+
+执行 `CMP` 后、条件跳转或条件调用前，不得插入会更新 FLAGS 的算术/逻辑指令。
+
+## 指令集总表
+
+### 数据传送
+
+| 操作码 | 语法 | 长度 | 功能 |
+|---:|---|---:|---|
+| `0x10` | `MOV Ra, Rw` | 1 字 | `Rw ← Ra` |
+| `0x11` | `ILD Rw, Rb` | 1 字 | `Rw ← M[Rb]` |
+| `0x12` | `IST Ra, Rb` | 1 字 | `M[Rb] ← Ra` |
+| `0x13` | `LDR Rw, src` | 2 字 | `Rw ← M[src]` |
+| `0x14` | `STR Ra, src` | 2 字 | `M[src] ← Ra` |
+| `0x15` | `LDI Rw, i32` | 2 字 | `Rw ← i32` |
+| `0x16` | `LDA Rw, src` | 2 字 | `Rw ← src` 的 32 位地址 |
+| `0x16` | `LDC Rw, u32` | 2 字 | `Rw ← u32`；与 `LDA` 同操作码的原始地址写法 |
+| `0x17` | `LDO Ra, Rb, Rw` | 1 字 | `Rw ← M[Ra + Rb]` |
+
+其中 `src` 可以是 `rom[...]`、`ram[...]`、`stack[...]`、`ivt[...]`、`keyboard`、`terminal` 或 `telnet`。
+
+### 无符号算术与逻辑运算
+
+| 操作码 | 语法 | 功能 |
+|---:|---|---|
+| `0x20` | `ADD Ra, Rb, Rw` | `Rw ← Ra + Rb` |
+| `0x21` | `SUB Ra, Rb, Rw` | `Rw ← Ra - Rb` |
+| `0x22` | `INC Ra, Rw` | `Rw ← Ra + 1` |
+| `0x23` | `DEC Ra, Rw` | `Rw ← Ra - 1` |
+| `0x24` | `MUL Ra, Rb, Rw` | 无符号乘法，`Rw` 只保留乘积低 32 位 |
+| `0x25` | `DIV Ra, Rb, Rw` | 无符号除法，`Rw ← Ra / Rb` |
+| `0x26` | `REM Ra, Rb, Rw` | 无符号余数，`Rw ← Ra % Rb` |
+| `0x27` | `SFT Ra, Rb, Rw` | 逻辑移位；移位方向和数量由 `Rb` 指定 |
+| `0x28` | `AND Ra, Rb, Rw` | `Rw ← Ra & Rb` |
+| `0x29` | `NAND Ra, Rb, Rw` | `Rw ← ~(Ra & Rb)` |
+| `0x2A` | `OR Ra, Rb, Rw` | `Rw ← Ra \| Rb` |
+| `0x2B` | `NOR Ra, Rb, Rw` | `Rw ← ~(Ra \| Rb)` |
+| `0x2C` | `XOR Ra, Rb, Rw` | `Rw ← Ra ^ Rb` |
+| `0x2D` | `XNOR Ra, Rb, Rw` | `Rw ← ~(Ra ^ Rb)` |
+| `0x2E` | `NOT Ra, Rw` | `Rw ← ~Ra` |
+| `0x2F` | `CMP Ra, Rb` | 计算 `Ra - Rb` 并更新 FLAGS，不写回 |
+
+### 有符号运算
+
+| 操作码 | 语法 | 功能 |
+|---:|---|---|
+| `0x50` | `SMUL Ra, Rb, Rw` | 有符号补码乘法，只保留乘积低 32 位 |
+| `0x51` | `SDIV Ra, Rb, Rw` | 有符号补码除法 |
+| `0x52` | `SREM Ra, Rb, Rw` | 有符号补码余数 |
+| `0x53` | `SSFT Ra, Rb, Rw` | 有符号算术移位；右移时复制符号位 |
+
+`MUL` 和 `SMUL` 都只输出低 32 位，且不提供可用于判断乘法溢出的有效 `V` 标志。
+
+### 跳转、调用与中断
+
+| 操作码 | 语法 | 长度 | 功能 |
+|---:|---|---:|---|
+| `0x30` | `JMP addr` | 2 字 | 无条件跳转到 `addr` |
+| `0x31` | `JCC cond, addr` | 2 字 | 条件成立时跳转到 `addr` |
+| `0x32` | `JPR Ra` | 1 字 | `PC ← Ra` |
+| `0x33` | `JRC cond, Ra` | 1 字 | 条件成立时 `PC ← Ra` |
+| `0x34` | `CALL addr` | 2 字 | 调用 `addr`，返回地址由硬件栈保存 |
+| `0x35` | `CAC cond, addr` | 2 字 | 条件成立时调用 `addr` |
+| `0x36` | `RET` | 1 字 | 从普通子程序返回 |
+| `0x37` | `INT addr` | 2 字 | 触发地址为 `addr` 的软件中断 |
+| `0x38` | `CINT cond, addr` | 2 字 | 条件成立时触发软件中断 |
+| `0x39` | `IRET` | 1 字 | 恢复中断现场并从中断返回 |
+| `0x3A` | `EI` | 1 字 | 开启硬中断允许 |
+| `0x3B` | `DI` | 1 字 | 关闭硬中断允许 |
+
+硬中断进入时由 CPU 自动禁止嵌套中断，并以外设给出的向量地址查询 IVT。键盘向量地址为 `0x03000001`，Telnet 向量地址为 `0x03000002`。`IRET` 恢复现场，并按 CPU 中断逻辑重新开启中断允许。
+
+### 栈与帧指针
+
+| 操作码 | 语法 | 功能 |
+|---:|---|---|
+| `0x40` | `PUSH Ra` | `M[SP] ← Ra`，随后 `SP ← SP + 1` |
+| `0x41` | `POP Rw` | `SP ← SP - 1`，随后 `Rw ← M[SP]` |
+| `0x42` | `LSP Ra` | `SP ← Ra` |
+| `0x43` | `OSP Rw` | `Rw ← SP` |
+| `0x44` | `FTS` | `SP ← FP` |
+| `0x45` | `STF` | `FP ← SP` |
+| `0x46` | `PUSHFP` | 将 `FP` 压入硬件栈 |
+| `0x47` | `POPFP` | 从硬件栈恢复 `FP` |
+| `0x60` | `PUSHU Ra` | 仅内核态：以 USP 执行一次 `PUSH Ra`，然后自动回到内核态 |
+| `0x61` | `POPU Rw` | 仅内核态：以 USP 执行一次 `POP Rw`，然后自动回到内核态 |
+
+栈向高地址增长。典型函数序言使用 `PUSHFP` 保存旧帧指针，再用 `STF` 建立新栈帧；函数尾声使用 `FTS` 恢复 `SP`，再用 `POPFP` 恢复旧 `FP`。
+
+`PUSHU/POPU` 是特权指令，用于内核构造或检查用户栈上的返回链。硬件在操作前临时选择用户态和 USP，操作完成后自动恢复内核态；临时的 P 变化不得使 CU 误读用户微码。
+
+### 系统指令
+
+| 操作码 | 语法 | 功能 |
+|---:|---|---|
+| `0x00` | `NOP` | 空操作 |
+| `0xF0` | `HALT` | CPU 停机 |
+
+## 示例
+
+### 有符号比较
+
+```asm
+LDI r0, -2147483647
+LDI r1, 2
+CMP r0, r1
+JCC lt, signed_less
+JCC ge, signed_greater_or_equal
+
+signed_less:
+    LDI r0, 0xAAAAAAAA
+    STR r0, ram[0x000000]
+    HALT
+
+signed_greater_or_equal:
+    LDI r0, 0xBBBBBBBB
+    STR r0, ram[0x000000]
+    HALT
+```
+
+### 栈帧
+
+```asm
+LDI r0, 0x02000000
+LSP r0
+
+CALL function
+HALT
+
+function:
+    PUSHFP
+    STF
+    LDI r1, 0x12345678
+    PUSH r1
+    POP r2
+    FTS
+    POPFP
+    RET
+```
+
+## 生成 Logisim HEX
+
+```text
+customasm <file_path> -f list,base:16,group:8,between:" ",before:"v2.0 raw\n",after:"" -o <output_path>
+```
+
+输出文件使用 Logisim/Digital 可读取的 `v2.0 raw` 文本格式，每个 32 位机器字表示为 8 位十六进制数。

@@ -1,0 +1,59 @@
+{
+  "Date": "2026-09-14T19:07:49.7575504+08:00",
+  "ProjectRoot": "F:\\aurora-32",
+  "TestRoot": "C:\\Users\\leowm\\AppData\\Local\\Temp\\aurora portable check 8b9e38e5df04438abad7da494913d8e8",
+  "Shell": "Windows PowerShell 5.1",
+  "Environment": "System32-only PATH; include/library overrides removed",
+  "Images": [
+    {
+      "Path": "kernel\\build\\kernel.bin",
+      "SHA256": "3AA2BF4099175FF61AB581061BFC15E999B2D43F4523F0D47B306ECC8F410BAD",
+      "Match": true
+    },
+    {
+      "Path": "kernel\\build\\kernel.hex",
+      "SHA256": "B94DD056D6A35BE5869A69C6653D4441936772C9A02C534B20E9CD78195D551B",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\calculator\\build\\calculator.bin",
+      "SHA256": "C48F65CE1A8469E351F4F0343585808D2462DE14D31A4FD2BF5D2F09D6EF33DF",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\calculator\\build\\calculator.hex",
+      "SHA256": "F58A67548F7D0B760C41109946F30C3D1171E1D243C353590317FEE0A90B8668",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\calculator\\build\\calculator-trace.bin",
+      "SHA256": "846F0615EF83594C6AE292B00CB72D5D2216EBCE925F04DB654D7A105199BB56",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\calculator\\build\\calculator-trace.hex",
+      "SHA256": "D450B3FC7E11152F19189F81AA1EE3B2C4BB1FF8A68EDE4334539DFEFE45731E",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\tic-tac-toe\\build\\tic-tac-toe.bin",
+      "SHA256": "33E47A52E624F60CC376D2C8969326B89F4AE757AE56C8EB5A65509EA85FC3DE",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\tic-tac-toe\\build\\tic-tac-toe.hex",
+      "SHA256": "34E72059D32EEE122B0E89A469CB5C050DF751A6B22E50B58D5C91BDC8FFC970",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\guess-number\\build\\guess-number.bin",
+      "SHA256": "80CFE9CA61C7D21C1D7003D3A9AE2AA5D196F64F254E87732CD14420CBDF327D",
+      "Match": true
+    },
+    {
+      "Path": "user-programs\\programs\\guess-number\\build\\guess-number.hex",
+      "SHA256": "9D7CF75B0507861E14A0D69B17E8B8923C9A6DA09753175C9EC022FC28FEBC37",
+      "Match": true
+    }
+  ]
+}
