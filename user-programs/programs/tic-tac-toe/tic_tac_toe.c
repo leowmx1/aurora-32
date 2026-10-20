@@ -26,6 +26,15 @@ static volatile int current_player;
 static volatile int move_count;
 static volatile int pending_row;
 static volatile int pending_column;
+static aurora_io_buffer screen;
+
+static void flush_screen(void) {
+  system.io.buffer.Flush(&screen);
+  if (screen.error != 0) {
+    system.io.buffer.ReportError(&screen);
+    system.Exit(1);
+  }
+}
 
 __attribute__((noinline, optnone)) static void
 keyboard_callback(aurora_word_t event_word) {
@@ -44,33 +53,35 @@ static char piece_for_player(int player) {
 }
 
 static void draw_board(void) {
-  system.io.PutChar('\f');
-  system.io.PutString("  1 2 3 4 5\n");
+  system.io.buffer.Begin(&screen);
+  system.io.buffer.Char(&screen, '\f');
+  system.io.buffer.String(&screen, "  1 2 3 4 5\n");
 
   for (int row = 0; row < BOARD_SIZE; ++row) {
-    system.io.PutChar((char)('A' + row));
+    system.io.buffer.Char(&screen, (aurora_word_t)('A' + row));
     for (int column = 0; column < BOARD_SIZE; ++column) {
       int cell = board[row * BOARD_SIZE + column];
-      system.io.PutChar(' ');
+      system.io.buffer.Char(&screen, ' ');
       if (cell == 0)
-        system.io.PutChar(' ');
+        system.io.buffer.Char(&screen, ' ');
       else
-        system.io.PutChar(piece_for_player(cell));
+        system.io.buffer.Char(&screen, (aurora_word_t)piece_for_player(cell));
     }
-    system.io.PutChar('\n');
+    system.io.buffer.Char(&screen, '\n');
   }
 }
 
 static void draw_turn(int message) {
   draw_board();
   if (message == DRAW_INVALID_COORDINATE)
-    system.io.PutString("Invalid coordinate. Use A1-E5 or 1A-5E.\n");
+    system.io.buffer.String(&screen, "Invalid coordinate. Use A1-E5 or 1A-5E.\n");
   else if (message == DRAW_CELL_OCCUPIED)
-    system.io.PutString("That cell is occupied.\n");
+    system.io.buffer.String(&screen, "That cell is occupied.\n");
 
-  system.io.PutString("Player ");
-  system.io.PutInt(current_player);
-  system.io.PutString(" > ");
+  system.io.buffer.String(&screen, "Player ");
+  system.io.buffer.Unsigned(&screen, (aurora_word_t)current_player);
+  system.io.buffer.String(&screen, " > ");
+  flush_screen();
 }
 
 __attribute__((noinline, optnone)) static int
@@ -103,12 +114,13 @@ __attribute__((noinline, optnone)) static int has_winning_line(int player) {
 __attribute__((noreturn)) static void finish_game(int winner) {
   draw_board();
   if (winner != 0) {
-    system.io.PutString("Player ");
-    system.io.PutInt(winner);
-    system.io.PutString(" wins!\n");
+    system.io.buffer.String(&screen, "Player ");
+    system.io.buffer.Unsigned(&screen, (aurora_word_t)winner);
+    system.io.buffer.String(&screen, " wins!\n");
   } else {
-    system.io.PutString("Draw!\n");
+    system.io.buffer.String(&screen, "Draw!\n");
   }
+  flush_screen();
   system.Exit(0);
   for (;;)
     aurora.Nop();

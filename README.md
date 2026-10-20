@@ -49,7 +49,7 @@ Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 | `micro-code/kernel/`、`micro-code/user/`、`micro-code/hard-int/` | 主/用户/硬中断微码项目及导出文件 |
 | `kernel/` | 内核源文件、构建入口、内核自己的 `build/` |
 | `user-programs/include/` | 系统调用 ABI、用户回调封装、`system.io` |
-| `user-programs/programs/` | 计算器、五子棋、猜数字及各自 `build/` |
+| `user-programs/programs/` | 计算器、五子棋、猜数字、贪吃蛇、迷宫、迷你终端及各自 `build/` |
 | `deprecated-bare-metal/` | **不受支持、已弃用**的裸机源码归档；旧编译产物已清理 |
 | `build-tools/` | 可直接用于本项目的编译工具、头文件、运行库、脚本 |
 | `docs/user_program/` | 每个用户示例的详细 README |
@@ -64,6 +64,9 @@ Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 - [计算器跟踪版本](docs/user_program/calculator-trace/README.md)
 - [5×5 五子棋](docs/user_program/tic-tac-toe/README.md)
 - [猜数字](docs/user_program/guess-number/README.md)
+- [终端贪吃蛇与批量输出](docs/user_program/snake/README.md)
+- [迷宫探险](docs/user_program/maze/README.md)
+- [迷你命令终端与 Telnet](docs/user_program/mini-terminal/README.md)
 - [内核说明](docs/kernel/README.md)
 - [Aurora 架构和编程约定](docs/aurora/README.md)
 - [指令速查](docs/aurora/instruction-set.md)
@@ -73,6 +76,6 @@ Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 ## 范围和限制
 
 目前运行的是一个系统进程和一个用户进程，没有文件系统、动态装载器、多个用户
-进程、通用 libc 或 shell。用户退出/异常时内核会打印原因并停机。
+进程、通用 libc 或完整 shell；迷你终端仅执行内置命令。用户退出/异常时内核会打印原因并停机。
 `deprecated-bare-metal/` 已弃用，里面的程序是历史内核态裸机程序，不能当作 UROM 用户程序运行。
 本文档描述软件当前需要的硬件契约，不表示所有异常电路时序均已由软件测试覆盖。

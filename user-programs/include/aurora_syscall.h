@@ -9,6 +9,7 @@
 typedef unsigned int aurora_word_t;
 typedef int aurora_status_t;
 typedef void (*aurora_keyboard_callback_t)(aurora_word_t character);
+typedef void (*aurora_telnet_callback_t)(aurora_word_t event);
 
 /* Compatibility with an Aurora compiler built before program-mode markers. */
 #ifndef AURORA_KERNEL_PROGRAM
@@ -36,7 +37,17 @@ enum {
   AURORA_SYSCALL_CALLBACK_RETURN = 7,
   /* r1 contains the signed 32-bit process exit code.  This never returns. */
   AURORA_SYSCALL_PROCESS_EXIT = 8,
+  /* r1=user word buffer, r2=character count (0..64); result=count. */
+  AURORA_SYSCALL_CONSOLE_WRITE = 9,
+  /* Raw unsigned milliseconds modulo 2^32, not a signed status code. */
+  AURORA_SYSCALL_TIME_MS = 10,
+  AURORA_SYSCALL_TELNET_PUTCHAR = 11,
+  AURORA_SYSCALL_TELNET_NEXT = 12,
+  AURORA_SYSCALL_TELNET_SUBSCRIBE = 13,
+  AURORA_SYSCALL_TELNET_WRITE = 14,
 };
+
+#define AURORA_CONSOLE_WRITE_MAX 64u
 
 enum {
   AURORA_OK = 0,

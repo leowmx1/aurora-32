@@ -18,7 +18,7 @@
 | `bin/llvm-objdump.exe` | 反汇编/查看对象 |
 | `bin/msvcp140.dll`、`vcruntime140.dll`、`vcruntime140_1.dll` | 这些工具实际导入的应用本地 VC 运行库 |
 | `lib/clang/24/include/` | 整套 Clang resource headers，包含定制 `aurora.h` |
-| `include/` | 三个项目用户 ABI 头文件的打包快照 |
+| `include/` | 用户 ABI、`system.io.buffer` 缓冲输出和 `kbqueue` 键盘队列头文件的打包快照 |
 | `build.ps1` | 总构建入口，先内核再用户程序，可用 -Program 选择目标 |
 | `build-user.ps1` | 任意单个用户 C 文件的一行编译入口，自动确定产物目录和系统调用地址 |
 | `compile.ps1` | 公共 C→汇编/对象→bin→HEX 构建流程及校验 |
@@ -51,7 +51,7 @@ Clang 的前端和后端已集成在同一个 `clang.exe`，无需另一个所�
 ```
 
 根构建总会先编译内核。`-Program all` 为默认，还接受 calculator、calculator-trace、
-tic-tac-toe、guess-number。只构建内核或使用现有内核对象：
+tic-tac-toe、guess-number、snake、maze、mini-terminal。只构建内核或使用现有内核对象：
 
 ```powershell
 .\kernel\build.ps1
@@ -137,6 +137,10 @@ Clang 可用 `-print-resource-dir` 查看默认头文件路径，`--version`/`-p
 ## 头文件来源与更新
 
 `user-programs/include/` 是项目 ABI 的维护源；`build-tools/include/` 是复制快照。
+
+当前编译器包含 Aurora 常量函数表的早期解析优化，使 `system.io.buffer.*`、`kbqueue.*`
+等点号 API 能参与常规内联。语法与 ABI 不变；每次重建仍须使用同批次的内核和用户镜像。
+性能对照与测试限制见 [验证记录](verification.md)。
 用户构建显式加入项目 include，内核用相对 include，共同使用维护源。
 修改 ABI 后要同步这份快照，重新构建内核和所有用户镜像，并更新 manifest。
 `aurora.h` 属于定制编译器 resource headers，应与工具版本一起升级。
@@ -151,7 +155,7 @@ Clang 可用 `-print-resource-dir` 查看默认头文件路径，`--version`/`-p
 的路径、清除开发工具 PATH 后再构建，并比较生成二进制。检查所有文档相对链接
 和脚本是否仍引用旧项目/LLVM 绝对路径。具体结果见 [验证记录](verification.md)。
 
-内核/三个现存用户示例是此包保证的构建目标。它不包含旧 customasm、不承诺支持
+内核/六个现存用户示例是此包验证的构建目标。它不包含旧 customasm、不承诺支持
 历史裸机汇编方言、任意 C 标准库、动态链接或所有 C 类型。当前可写 char 数组
 仍可能触发窄存储指令选择错误；使用字缓冲并检查汇编，不把它解释为缺失头文件。
 硬件稳定性和中断时序仍须在电路中测试。

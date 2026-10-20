@@ -41,6 +41,11 @@ Player 1 >
 
 ## 代码结构
 
+输出已改为 `system.io.buffer` 的 64 字批量缓冲，棋盘和提示文本、规则均不变。
+正常一帧 84 字，由原先 65 次输出系统调用降为 2 次 Write。按键回显仍是单字符输出。
+终端不支持任意光标定位，所以仍用 `\f` 清屏重绘，并非局部更新。
+请使用新增 Write 接口的配套内核，不要把新用户 HEX 与旧内核混用。
+
 `board[25]` 保存 0/1/2，分别表示空位和两位玩家；`current_player`、`move_count`
 维护回合。`pending_row`、`pending_column` 保存只输入一个字符时的状态。
 `process_character` 解码坐标，`submit_move` 检查并落子，`has_winning_line`

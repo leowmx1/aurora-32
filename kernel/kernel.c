@@ -17,6 +17,8 @@ enum {
   AURORA_URAM_BEGIN = 0x81000000u,
   AURORA_URAM_END = 0x82000000u,
   AURORA_TICK_DEVICE = 0x07000000u,
+  AURORA_TELNET_DEVICE = 0x06000000u,
+  TELNET_QUEUE_SIZE = 64u,
   /* Read-only kernel device: system uptime in milliseconds modulo 2^32. */
   AURORA_TIMER_DEVICE = 0x08000000u,
   AURORA_USER_KERNEL_STACK = 0x02010000u,
@@ -42,6 +44,8 @@ typedef struct aurora_process_context {
   aurora_word_t callback_restore_ksp;
   aurora_word_t callback_active;
   aurora_word_t callback_stack_bank;
+  aurora_telnet_callback_t telnet_callback;
+  aurora_word_t telnet_trampoline;
 } aurora_process_context;
 
 /* Kernel-resident state.  It is intentionally private to kernel RAM. */
@@ -49,6 +53,8 @@ static volatile aurora_word_t keyboard_queue[KEYBOARD_QUEUE_SIZE];
 static volatile aurora_word_t keyboard_read;
 static volatile aurora_word_t keyboard_write;
 static volatile aurora_word_t keyboard_irq_sequence;
+static volatile aurora_word_t telnet_queue[TELNET_QUEUE_SIZE];
+static volatile aurora_word_t telnet_read, telnet_write, telnet_irq_sequence;
 /* Volatile prevents the generic optimizer from replacing x * 256 with SFT;
  * this CPU's physical signed shift-count convention is target-specific. */
 static volatile aurora_word_t keyboard_event_radix = 256u;
@@ -60,6 +66,7 @@ static volatile aurora_word_t current_process;
 extern void aurora_syscall_entry(void);
 void aurora_tick_irq(void);
 void aurora_keyboard_irq(void);
+void aurora_telnet_irq(void);
 __attribute__((interrupt)) void aurora_user_memory_fault(void);
 __attribute__((interrupt)) void aurora_user_illegal_instruction(void);
 
@@ -142,6 +149,8 @@ static void mark_user_not_runnable(void) {
   user->callback_trampoline = 0u;
   user->callback_restore_ksp = 0u;
   user->callback_active = 0u;
+  user->telnet_callback = (aurora_telnet_callback_t)0;
+  user->telnet_trampoline = 0u;
 }
 
 static void kernel_fault_spacing(void) {
@@ -191,6 +200,8 @@ static aurora_status_t kernel_console_put_string(aurora_word_t address) {
   return AURORA_EINVAL;
 }
 
+#include "console_write.h"
+
 __attribute__((noinline)) static void
 enqueue_keyboard_word(aurora_word_t character) {
   aurora_word_t next = (keyboard_write + 1u) % KEYBOARD_QUEUE_SIZE;
@@ -218,15 +229,12 @@ dequeue_keyboard_word(aurora_word_t *character) {
  */
 __attribute__((noinline, optnone)) static aurora_word_t
 prepare_user_callback(aurora_word_t source_stack_top,
-                      aurora_word_t event_word) {
+                      aurora_word_t event_word,
+                      aurora_word_t callback, aurora_word_t trampoline) {
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
-  aurora_word_t callback =
-      (aurora_word_t)(unsigned long)user->callback;
   if (user->callback_active ||
-      user->subscribed_vector != AURORA_IVT_KEYBOARD ||
       !is_user_code_address(callback) ||
-      (user->callback_trampoline != 0u &&
-       !is_user_code_address(user->callback_trampoline)) ||
+      (trampoline != 0u && !is_user_code_address(trampoline)) ||
       source_stack_top < AURORA_INTERRUPT_FRAME_WORDS)
     return 0u;
 
@@ -263,7 +271,6 @@ prepare_user_callback(aurora_word_t source_stack_top,
   user->callback_active = 1u;
   user->callback_stack_bank = bank;
 
-  aurora_word_t trampoline = user->callback_trampoline;
   if (trampoline != 0u)
     __asm__ volatile("pushu %0" : : "r"(trampoline) : "memory");
   return target + AURORA_INTERRUPT_FRAME_WORDS;
@@ -312,12 +319,47 @@ handle_keyboard_interrupt(aurora_word_t character,
                              ? interrupted_stack_top
                              : user->ksp;
   aurora_word_t callback_top =
-      prepare_user_callback(source, event_word);
+      prepare_user_callback(source, event_word,
+          (aurora_word_t)(unsigned long)user->callback, user->callback_trampoline);
   if (callback_top == 0u)
     return 0u;
   if (current_process == PROCESS_USER)
     return callback_top;
   user->ksp = callback_top;
+  return 0u;
+}
+
+/* Consume a queued Telnet event only after successfully preparing its frame.
+ * A single shared callback_active guard prevents cross-device nesting. */
+__attribute__((noinline, optnone)) static aurora_word_t
+prepare_pending_telnet(aurora_word_t source) {
+  volatile aurora_process_context *user = &process_table[PROCESS_USER];
+  if (!user->valid || user->callback_active || !user->telnet_callback ||
+      telnet_read == telnet_write) return 0u;
+  aurora_word_t top = prepare_user_callback(source, telnet_queue[telnet_read],
+      (aurora_word_t)(unsigned long)user->telnet_callback, user->telnet_trampoline);
+  if (top != 0u) telnet_read = (telnet_read + 1u) % TELNET_QUEUE_SIZE;
+  return top;
+}
+
+__attribute__((noinline, optnone, used)) static aurora_word_t
+handle_telnet_interrupt(aurora_word_t character, aurora_word_t interrupted_top) {
+  aurora_word_t mask = 0xffu;
+  __asm__ volatile("and %0, %1, %0" : "+r"(character) : "r"(mask) : "memory");
+  telnet_irq_sequence = (telnet_irq_sequence + 1u) & 0xffffu;
+  if (telnet_irq_sequence == 0u) telnet_irq_sequence = 1u;
+  aurora_word_t next = (telnet_write + 1u) % TELNET_QUEUE_SIZE;
+  if (next != telnet_read) {
+    telnet_queue[telnet_write] = 0xa6000000u |
+        (telnet_irq_sequence * keyboard_event_radix) | character;
+    telnet_write = next;
+  }
+  volatile aurora_process_context *user = &process_table[PROCESS_USER];
+  aurora_word_t source = current_process == PROCESS_USER ? interrupted_top : user->ksp;
+  aurora_word_t top = prepare_pending_telnet(source);
+  if (top == 0u) return 0u;
+  if (current_process == PROCESS_USER) return top;
+  user->ksp = top;
   return 0u;
 }
 
@@ -337,6 +379,11 @@ take_callback_restore_stack_top(void) {
   user->callback_active = 0u;
   user->callback_restore_ksp = 0u;
   user->ksp = restored_top;
+  aurora_word_t pending_top = prepare_pending_telnet(restored_top);
+  if (pending_top != 0u) {
+    user->ksp = pending_top;
+    return pending_top;
+  }
   return restored_top;
 }
 
@@ -366,6 +413,8 @@ static void initialize_processes(void) {
   user->callback_restore_ksp = 0u;
   user->callback_active = 0u;
   user->callback_stack_bank = 0u;
+  user->telnet_callback = (aurora_telnet_callback_t)0;
+  user->telnet_trampoline = 0u;
 }
 
 /*
@@ -387,6 +436,8 @@ aurora_schedule_from_tick(aurora_word_t stack_top) {
     system->ksp = stack_top;
     system->valid = 1u;
     current_process = PROCESS_USER;
+    aurora_word_t pending_top = prepare_pending_telnet(user->ksp);
+    if (pending_top != 0u) user->ksp = pending_top;
     return user->ksp;
   }
 
@@ -407,6 +458,7 @@ __attribute__((noreturn)) void _start(void) {
   keyboard_read = 0;
   keyboard_write = 0;
   keyboard_irq_sequence = 0;
+  telnet_read = telnet_write = telnet_irq_sequence = 0u;
   user_fault_vector = 0;
   user_exit_code = 0;
   kernel_boot_status("kernel state initialized");
@@ -423,6 +475,8 @@ __attribute__((noreturn)) void _start(void) {
 
   aurora.interrupt.Register(AURORA_IVT_KEYBOARD, aurora_keyboard_irq);
   kernel_boot_status("keyboard interrupt installed");
+  aurora.interrupt.Register(AURORA_IVT_TELNET, aurora_telnet_irq);
+  kernel_boot_status("telnet interrupt installed");
 
   aurora.interrupt.Register(AURORA_IVT_TICK, aurora_tick_irq);
   kernel_boot_status("tick scheduler installed");
@@ -490,6 +544,53 @@ __attribute__((naked, noinline)) void aurora_keyboard_irq(void) {
     "  pop r0\n"
     "  iret\n");
 }
+
+__attribute__((naked, noinline)) void aurora_telnet_irq(void) {
+  __asm__ volatile(
+    "  push r0\n"
+    "  push r1\n"
+    "  push r2\n"
+    "  push r3\n"
+    "  push r4\n"
+    "  push r5\n"
+    "  push r6\n"
+    "  push r7\n"
+    "  push r8\n"
+    "  push r9\n"
+    "  push r10\n"
+    "  push r11\n"
+    "  push r12\n"
+    "  push r13\n"
+    "  push r14\n"
+    "  push r15\n"
+    "  osp r1\n"
+    "  ldi r0, 0x06000000\n"
+    "  ild r0, r0\n"
+    "  call handle_telnet_interrupt\n"
+    "  ldi r1, 0x00000000\n"
+    "  cmp r0, r1\n"
+    "  jcc z, .Ltelnet_keep_stack\n"
+    "  lsp r0\n"
+    ".Ltelnet_keep_stack:\n"
+    "  pop r15\n"
+    "  pop r14\n"
+    "  pop r13\n"
+    "  pop r12\n"
+    "  pop r11\n"
+    "  pop r10\n"
+    "  pop r9\n"
+    "  pop r8\n"
+    "  pop r7\n"
+    "  pop r6\n"
+    "  pop r5\n"
+    "  pop r4\n"
+    "  pop r3\n"
+    "  pop r2\n"
+    "  pop r1\n"
+    "  pop r0\n"
+    "  iret\n");
+}
+
 
 /* These handlers are installed manually because they are not device names. */
 __attribute__((interrupt)) void aurora_user_memory_fault(void) {
@@ -590,6 +691,27 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
     return AURORA_OK;
   case AURORA_SYSCALL_CONSOLE_PUTSTRING:
     return kernel_console_put_string(arg0);
+  case AURORA_SYSCALL_CONSOLE_WRITE:
+    return kernel_console_write(arg0, arg1);
+  case AURORA_SYSCALL_TIME_MS:
+    return (aurora_status_t)aurora.Read(AURORA_TIMER_DEVICE);
+  case AURORA_SYSCALL_TELNET_PUTCHAR:
+    aurora.Write(AURORA_TELNET_DEVICE, arg0 & 0xffu);
+    return AURORA_OK;
+  case AURORA_SYSCALL_TELNET_NEXT:
+    if (telnet_read == telnet_write) return AURORA_EAGAIN;
+    arg0 = telnet_queue[telnet_read];
+    telnet_read = (telnet_read + 1u) % TELNET_QUEUE_SIZE;
+    return (aurora_status_t)(arg0 & 0xffu);
+  case AURORA_SYSCALL_TELNET_SUBSCRIBE:
+    if (arg2 != AURORA_IVT_TELNET ||
+        (arg0 != 0u && (!is_user_code_address(arg0) || !is_user_code_address(arg1))))
+      return AURORA_EFAULT;
+    user->telnet_callback = (aurora_telnet_callback_t)(unsigned long)arg0;
+    user->telnet_trampoline = arg0 == 0u ? 0u : arg1;
+    return AURORA_OK;
+  case AURORA_SYSCALL_TELNET_WRITE:
+    return kernel_telnet_write(arg0, arg1);
   case AURORA_SYSCALL_CALLBACK_RETURN:
     if (current_process != PROCESS_USER || !user->callback_active)
       return AURORA_EINVAL;

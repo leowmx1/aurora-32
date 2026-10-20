@@ -92,6 +92,16 @@ aurora_keyboard_subscribe_entry(aurora_keyboard_callback_t entry) {
                         AURORA_IVT_KEYBOARD);
 }
 
+/* Telnet events are 0xA6SSSSCC; ordinary C return uses the same trampoline.
+ * A null callback unsubscribes. Keyboard and Telnet subscriptions coexist. */
+static __inline__ __attribute__((always_inline)) aurora_status_t
+aurora_telnet_subscribe(aurora_telnet_callback_t callback) {
+  return aurora_syscall(AURORA_SYSCALL_TELNET_SUBSCRIBE,
+                        (aurora_word_t)(unsigned long)callback,
+                        (aurora_word_t)(unsigned long)__aurora_callback_return_trampoline,
+                        AURORA_IVT_TELNET);
+}
+
 /* Return one queued keyboard word, or AURORA_EAGAIN when the queue is empty. */
 static __inline__ __attribute__((always_inline)) aurora_status_t
 aurora_keyboard_next(void) {

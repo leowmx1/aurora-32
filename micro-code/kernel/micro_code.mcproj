@@ -1,8 +1,21 @@
 {
-  "version": 1,
+  "version": 3,
+  "microcode": {
+    "encoding": "deflate-base64",
+    "byteOrder": "big",
+    "wordBytes": 5,
+    "wordCount": 4096,
+    "data": "eJzt17FOwzAUheHjKEJBYkgRAwNDhBgYGBgYGEyVkYGBx2E0TDwGD8LD0ZaoNFGpSHJAAf6lktPo07Gvbd0oqq50k1Qr6lEhStK4Hzw8PLzf6WWZ01PMtRhKdYh6cnkxUwrzYMm3MUzDku7yhiRte6n2rp/ZU2mt7/TPB96f9lTuWb3c7F2W1vs5XJm9wjzfA7N3bfZKs3dk9o7N3onZq8zemdk7N3sX7vtFudP7GC5u1lSO91Lr2SC0059qWKod+Uai2/srRVXV8t+keVDWY+Zb1m8U2qmvwrvSNG3j6qH4so5WKOXNK1W1yve1uC3vdfVsFNrOV2/Od/FKmrWm/9x3/9Vjtt4WrzJ7o6h/7zWbq/lqyxxe57z1/0jq3n+Fd/1OzfUozfmq3F9fld9W39Q7bre+zvmGqENzfa3nDW9i3q35e/DO7D2YvXuzN/X64uHhfeoV6/5v39IfFMv+oHD2f9NePzw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PLyf82YTz4eHh4dn894AVmuJBA=="
+  },
   "hexFile": "micro_code.hex",
+  "binFile": null,
+  "assemblyFiles": [],
   "preferences": {
     "version": 1,
+    "cuInfo": {
+      "name": "",
+      "description": ""
+    },
     "wordWidth": 37,
     "rules": [
       {
@@ -677,6 +690,7 @@
       }
     ],
     "appSettings": {
+      "sidebarCollapsed": false,
       "restoreLastFile": true,
       "autoCompress": false,
       "animations": true,
