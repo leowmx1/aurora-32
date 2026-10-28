@@ -18,7 +18,7 @@ KSP/KFP 为 `0x02000000`，再分配局部栈空间和执行初始化。启动�
 3. 构造系统/用户 PCB 和第一个用户 IRET 现场。
 4. 注册用户访存异常、非法指令、键盘、Telnet 和 tick 的硬件向量。
 5. 输出 `startup complete` 与三个换行，启用中断。
-6. 系统进程在 NOP 循环等待；第一次 tick 保存系统现场并调度用户入口。
+6. 系统进程在空闲循环主动执行 Yield，保存首次系统现场并立即进入用户入口；不必等待第一次 tick。
 
 启动日志格式是 `[123 ms] message`。时间来自内核 timer MMIO `0x08000000`，
 直接使用毫秒，没有除以 1000。timer 返回值按 2^32 回绕；当前输出复用有符号
@@ -34,9 +34,11 @@ KSP/KFP 为 `0x02000000`，再分配局部栈空间和执行初始化。启动�
 | 终端数据 | `0x05000000` | 写字符 |
 | tick 设备 | `0x07000000` | ISR 先读以应答，值不使用 |
 | timer 设备 | `0x08000000` | 读系统运行毫秒数，不负责调度 |
+| 图形参数 | `0x09000000`..`0x09000008` | 低 4 位译码 x/y/w/h/color/bgcolor/dataLow/dataHigh/mode |
+| 图形状态 | `0x09000009` | 读 busy；写 1 启动，完成自动清零；写 0 停止 |
+| MIDI | `0x0A000000`..`0x0A00007F` | 地址低 7 位音符/乐器；数据力度、OnOff、PC |
 | 键盘向量 | `0x03000001` | `aurora_keyboard_irq` |
 | Telnet 向量 | `0x03000002` | `aurora_telnet_irq` |
-| Telnet 向量 | `0x03000002` | 共享 ABI 预留，本内核未注册处理程序 |
 | 用户内存异常 | `0x03000004` | `aurora_user_memory_fault` |
 | 用户非法指令 | `0x03000005` | `aurora_user_illegal_instruction` |
 | tick 向量 | `0x03000007` | `aurora_tick_irq` |
@@ -61,7 +63,8 @@ INT 不读取上述向量表。软件调用写 `INT <aurora_syscall_entry 的 RO
 否则可能从 USP 取到错误 PC。INT 自带 CLR_IE，用户不执行 DI。
 
 `aurora_schedule_from_tick(stack_top)` 当前只交换 PCB 的 `ksp`：系统被打断时
-保存系统 KSP，选择用户 KSP；用户被打断时反过来。现场留在各自内核栈，普通 tick
+保存系统 KSP，若用户可运行才选择用户 KSP；用户被打断时反过来。
+同一选择逻辑也用于系统空闲 Yield。用户在 WaitEvent/Sleep 阻塞时被跳过，Sleep 到期由 tick 恢复；内核空闲循环保持中断开启等待事件。现场留在各自内核栈，普通 tick
 不会每次把全部寄存器再复制到 PCB 的 r[]。汇编入口取返回的 KSP，随后 POP/IRET
 自然恢复目标进程。PCB 的 r[]/pc/flags 也用于用户首次启动和回调原现场快照。
 
@@ -85,30 +88,31 @@ PCB 保存 `subscribed_vector`、`callback`、`callback_trampoline`、`callback_
 
 1. 保存通用寄存器，读取键盘数据，掩去字符高位元数据。
 2. 没有订阅时，把字符放入内核兼容读取队列；有订阅时走回调路径，不重复入队。
-3. 若已有回调活跃，此字符被应答并丢弃，避免回调嵌套。
+3. 有订阅时无论回调是否活跃都先进入共享事件 FIFO，满时丢新事件并计数。
 4. 增加非零 16 位序号，构造 `0xA5SSSSCC` 事件字。
-5. 选取用户的被打断现场（若系统正在运行，则取用户保存的 KSP）。
+5. 若允许投递，从 FIFO 队首选择事件（键盘和 Telnet 按 IRQ 被内核接收的顺序）；选取用户的被打断现场（若系统正在运行，则取用户保存的 KSP）。
 6. 把原 FLAGS/PC/r0-r15 快照到 PCB，复制现场到回调栈，替换 PC 为回调地址、r0 为事件。
-7. 通过内核专用 PUSHU 向用户栈放入返回跳板；IRET 后在用户态执行普通 C 回调。
+7. 成功准备现场才移动 FIFO 读指针；通过内核专用 PUSHU 向用户栈放入返回跳板；IRET 后在用户态执行普通 C 回调。
 8. C 回调 RET 到用户跳板；跳板请求私有系统调用 7，内核从 PCB 重建原现场，再 IRET。
 
-用户回调也允许被 tick 抢占。标准示例回调只做几次队列存储，耗时的解析和输出留给
-主循环。专用 bank 的存在不是允许任意递归回调；当前实现明确限制 `callback_active`。
+用户回调允许被 tick 抢占、调用系统 IO 和 Yield；不允许 WaitEvent/Sleep，避免等待无法嵌套执行的回调。
+标准示例直接在回调中处理业务。专用 bank 不代表允许递归回调，`callback_active` 保证跨设备不嵌套。
 `aurora_keyboard_subscribe_entry` 是低层特殊入口，跳板地址为 0，不会 PUSHU 普通
 返回地址；它必须自己通过回调返回接口结束，不能当作普通回调 `return`。
 
 ## 系统调用 ABI
 
-硬件 INT 进入内核；入口保存 r1-r15，r0 留作返回值。普通请求经 C 分派后恢复
+硬件 INT 进入内核；入口保存 r0-r15，与 IRQ 统一为 18 字现场。
+普通返回结果写入保存的 r0 槽，按保存的请求号识别回调返回/Yield/WaitEvent/Sleep，不再使用返回值魔数。普通请求经 C 分派后恢复
 寄存器并 IRET。输入为 r0 请求号、r1-r3 参数，普通返回值在 r0。
 
 | r0 | 名称 | r1 / r2 / r3 | 正常结果 |
 |---:|---|---|---|
-| 0 | ABI_VERSION | 未使用 | 1 |
+| 0 | ABI_VERSION | 未使用 | 3 |
 | 1 | CONSOLE_PUTCHAR | 字符 / 0 / 0 | 0，输出低 8 位 |
 | 2 | KEYBOARD_SUBSCRIBE | 回调 / 返回跳板 / 键盘向量 | 0；回调为 0 表示取消 |
 | 3 | KEYBOARD_NEXT | 未使用 | 下一个字符，空队列 -2 |
-| 4 | YIELD | 未使用 | 0；当前未真正切换进程 |
+| 4 | YIELD | 未使用 | 0；立即切换到另一可运行进程 |
 | 5 | CONSOLE_PUTINT | 有符号整数位模式 / 0 / 0 | 0 |
 | 6 | CONSOLE_PUTSTRING | 字符串字地址 / 0 / 0 | 0，或地址/长度错误 |
 | 7 | CALLBACK_RETURN | 私有跳板接口 | 恢复被打断现场，不普通返回 |
@@ -119,9 +123,23 @@ PCB 保存 `subscribed_vector`、`callback`、`callback_trampoline`、`callback_
 | 12 | TELNET_NEXT | 未使用 | 接收队列下一个字节 0..255，空队列 -2 |
 | 13 | TELNET_SUBSCRIBE | 回调 / 返回跳板 / 0x03000002 | 0；回调为 0 取消 |
 | 14 | TELNET_WRITE | 用户字符字数组地址 / 字数 / 0 | 最多 64 字，成功返回字数 |
+| 15 | WAIT_EVENT | 未使用 | 0；事件等待，回调内/暂缓区内 -5，无订阅 -1 |
+| 16 | EVENT_DROPS | 未使用 | unsigned 累计队列满丢弃数，模 2^32 |
+| 17 | DEFER_EVENTS | 未使用 | 0；增加回调投递暂缓深度 |
+| 18 | RESUME_EVENTS | 未使用 | 0；减少深度，降到零允许投递，无匹配 -1 |
+| 19 | GRAPHICS_FILL_RECT | x+256*y / w+256*h / color | 0 已提交，-5 忙，-1 矩形非法 |
+| 20 | GRAPHICS_BUSY | 未使用 | 0 空闲，1 忙 |
+| 22 | MIDI_NOTE_ON | note / velocity / 未使用 | 0，参数不在 0..127 则 -1 |
+| 23 | MIDI_NOTE_OFF | note / 未使用 / 未使用 | 0，参数非法 -1 |
+| 24 | MIDI_PROGRAM | program / 未使用 / 未使用 | 0，参数非法 -1 |
+| 25 | MIDI_ALL_NOTES_OFF | 未使用 | 0，释放内核记录的活动音符 |
+| 26 | MIDI_SEQUENCE | 数组地址 / 步数 / 模式 | 0 复制并启动，-1 参数非法，-4 指针非法 |
+| 27 | MIDI_SEQUENCE_BUSY | 未使用 | bit0 背景，bit1 音效 |
+| 28 | GRAPHICS_BITMAP | 八字描述符地址 / mode=1或2 / 0 | 0 已提交，-1 非法，-4 地址错误，-5 忙 |
+| 29 | SLEEP | ms (0..INT32_MAX) / 0 / 0 | 0 到期或事件唤醒；0ms 让出；参数 -1，回调/暂缓区 -5 |
 
 错误码：`AURORA_EINVAL=-1`、`AURORA_EAGAIN=-2`、`AURORA_ENOSYS=-3`、
-`AURORA_EFAULT=-4`。未知请求返回 ENOSYS。回调返回在当前非用户进程或没有活跃
+`AURORA_EFAULT=-4`、`AURORA_EBUSY=-5`。未知请求返回 ENOSYS。回调返回在当前非用户进程或没有活跃
 回调时被拒绝；退出请求也验证当前进程是用户。
 
 PutString 逐字检查地址仅在 UROM/URAM 内，最多读 4096 字，遇 0 结束。
@@ -136,7 +154,17 @@ Write 的内核实现见 `kernel/console_write.h`。它先检查长度和完整�
 
 TimeMs 读取内核 timer 设备 `0x08000000`，与读应答的 tick `0x07000000` 不同。
 返回值高位为 1 也属于合法时间，不应按负错误码处理；用户库显式转换为 `aurora_word_t`。
-它不修改 tick 状态，不实现阻塞等待。新增功能保持既有系统调用号及 ABI_VERSION=1 不变。
+它不修改 tick 状态，不实现阻塞等待。旧系统调用号不变，当前 ABI_VERSION=3。
+
+图形接口通过 `system.graphics.FillRect/Bitmap/BitmapTransparent` 异步提交，以 Busy 查询并 Yield。
+屏幕完成中断已移除，内核不注册 0x03000003，不在关中断区等待绘制。
+图形 Subscribe 已删除，旧请求 21 返回 ENOSYS；不能用 WaitEvent 等图形完成。
+参数边界、并发语义和完成中断建议见 [graphics.md](graphics.md)。
+
+MIDI 通过 `system.midi.NoteOn/NoteOff/Program/AllNotesOff` 操作固定的硬件通道，
+另有 `Sequence/SequenceBusy` 内核定时序列，由现有 tick 推进，无需 MIDI 完成中断。
+音效结束从背景原位置续播，播放不依赖绘图循环。退出及异常停机前取消序列、释放活动音符。
+协议、时长安排及贪吃蛇音效测试见 [midi.md](midi.md)。
 
 ## Telnet 回调与收发
 
@@ -145,18 +173,18 @@ Telnet MMIO 是 `0x06000000`，IRQ 向量是 `0x03000002`。启动时安装独�
 设备选择号 0x6 不是 CPU 绝对地址 0x00000006。
 
 PCB 独立保存 Telnet 回调及跳板地址，不覆盖键盘订阅；二者共用 callback_active，禁止跨设备嵌套。
-接收事件使用 `0xA6SSSSCC`，键盘仍是 `0xA5SSSSCC`。Telnet 内核环形队列 64 槽、可用 63 槽，
-满时丢新字节；序号可能有缺口。没有回调时通过 NEXT 读取；注册后同一队列由回调消费。
-队列条目只在成功建立回调现场后前移一次；NEXT 也会消费条目，不能期待两种接口各收到一份。
+接收事件使用 `0xA6SSSSCC`，键盘为 `0xA5SSSSCC`。二者共享每进程 64 槽 FIFO（有效 63），
+回调忙时继续接收，满时丢新事件并计数。没有订阅时分别走兼容读取队列；已订阅的 NEXT 返回 EBUSY。
+替换/取消某来源订阅会清除该来源的积压事件，保留另一来源的顺序。
 
-用户回调活跃时，新的 Telnet 数据仅入队。回调返回先从 PCB 重建原始现场并清除活跃标记，
-再从队列取下一条建立新回调；两组回调内核栈交替使用。没有重复执行同一条目的递归调用。
-系统进程运行时到达的数据可修改用户保存的 KSP，待 tick 切回；tick 切入用户时也检查待递送队列。
-持续网络流可能推迟用户主循环，队列有限，不提供流控或无丢包保证。键盘仍保持回调忙时丢键策略。
+回调返回恢复前台，不直接无穷串接下一回调；下一次调度留出前台执行机会。
+WaitEvent 和 ResumeEvents 可显式启动下一条投递。系统进程空闲时主动 Yield，不消耗一个完整 tick 时间片。
+等待用户被新事件唤醒后可直接由系统空闲 Yield 切入，不依赖新的 tick；事件本身不会嵌套回调。
+详细字段、时序和边界见 [events.md](events.md)。
 
 Telnet WRITE 与 CONSOLE_WRITE 使用相同的整段地址/长度验证，只允许 UROM/URAM，不接受 UStack。
 返回成功只表示 MMIO 写完成，无法证明连接存在或远端收取；不解析 Telnet 协议协商或 TCP 状态。
-现有 ABI_VERSION=1 和旧调用号不变，新调用号 11..14 是追加扩展。
+当前 ABI_VERSION=3，事件控制为 15..18，图形接口为 19..20 和 28，21 已停用，MIDI 为 22..27，Sleep 为 29。
 更新内核后已重新构建全部用户镜像，必须重新加载匹配的 ROM/UROM。
 
 ## 退出与异常处理

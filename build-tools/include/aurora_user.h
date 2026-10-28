@@ -3,6 +3,15 @@
 
 #include "aurora_syscall.h"
 
+/* Keep byte extraction explicit: narrow integer legalization in older
+ * bundled compilers may remove a constant mask at a noinline call boundary. */
+static __inline__ __attribute__((always_inline)) aurora_word_t
+aurora_event_character(aurora_word_t event) {
+  aurora_word_t mask = 255u;
+  __asm__ volatile("and %0, %1, %0" : "+r"(event) : "r"(mask));
+  return event;
+}
+
 /* Supplied by build.ps1 after it has located aurora_syscall_entry in ROM. */
 #ifndef AURORA_SYSCALL_ENTRY_ADDRESS
 #error "Build user programs with build.ps1 so the syscall ROM address is known"

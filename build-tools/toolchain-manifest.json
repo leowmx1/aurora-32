@@ -1,5 +1,5 @@
 {
-  "GeneratedAt": "2026-10-18T19:41:46.4399513+08:00",
+  "GeneratedAt": "2026-10-24",
   "Platform": "Windows x64",
   "ClangVersion": "clang version 24.0.0git\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: F:\\aurora-32\\build-tools\\bin",
   "ExecutableSource": "F:\\llvm-project\\llvm\\lib\\Target\\Aurora-32\\_build-tools\\bin",
@@ -73,8 +73,8 @@
     },
     {
       "Path": "build.ps1",
-      "Bytes": 444,
-      "SHA256": "7B39CC2D0D8A4BE62501DE579BC7777AF8FC12AC6E5C9F1863AB9F5BE26CDA7D"
+      "Bytes": 478,
+      "SHA256": "FD21BC6C1A555ED86EB8861FA5A63B32E42A59397F3E4A097E1C8710DA40B967"
     },
     {
       "Path": "compile.ps1",
@@ -83,13 +83,13 @@
     },
     {
       "Path": "include/aurora_syscall.h",
-      "Bytes": 1915,
-      "SHA256": "39E5185EEC58248FB7AF27A88D4CE38D41ED7574DC9D9493C18CC7A84E13A226"
+      "Bytes": 3821,
+      "SHA256": "EDA1EE65B89CD67907F4CB9DBB2C6B4F8D235CD77086B34AF6CE1CDBA4EDF1EC"
     },
     {
       "Path": "include/aurora_system.h",
-      "Bytes": 3789,
-      "SHA256": "C6EFE6C0230B70F355010EC8A1DB4092BC0C43355CB2F17773890E2185EF3A83"
+      "Bytes": 9860,
+      "SHA256": "665BE049C15174861A500FA79D4903BCD1D16550002EA36D18767134D5FEBFD3"
     },
     {
       "Path": "include/aurora_buffer.h",
@@ -97,14 +97,9 @@
       "SHA256": "B3501F9DF92318DB08D841B334711267C7B374DED72BD3A22EEB48EAF0B6D15A"
     },
     {
-      "Path": "include/aurora_kbqueue.h",
-      "Bytes": 2590,
-      "SHA256": "B6CC571C470586FECAF25B9B4F7215B4B943DBDC7EE4D117B63AA3AF8DF4B6EA"
-    },
-    {
       "Path": "include/aurora_user.h",
-      "Bytes": 5410,
-      "SHA256": "1DB691F9B15C4D66ACBF0BADD3584249E97C16762174DFD68C63E4575052731B"
+      "Bytes": 5802,
+      "SHA256": "0A0A44C046E4ED06146EAB66FB8B7C72A3AC2383927D72A1E2E13AC3D22E6125"
     },
     {
       "Path": "lib/clang/24/include/__clang_cuda_builtin_vars.h",

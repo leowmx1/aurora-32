@@ -45,7 +45,44 @@ enum {
   AURORA_SYSCALL_TELNET_NEXT = 12,
   AURORA_SYSCALL_TELNET_SUBSCRIBE = 13,
   AURORA_SYSCALL_TELNET_WRITE = 14,
+  AURORA_SYSCALL_WAIT_EVENT = 15,
+  AURORA_SYSCALL_EVENT_DROPS = 16,
+  AURORA_SYSCALL_DEFER_EVENTS = 17,
+  AURORA_SYSCALL_RESUME_EVENTS = 18,
+  /* r1=x+256*y, r2=width+256*height, r3=hardware color value.
+   * Non-blocking: 0 means accepted, not completed. */
+  AURORA_SYSCALL_GRAPHICS_FILL_RECT = 19,
+  /* 0=idle, 1=busy. No acknowledgement or other side effect. */
+  AURORA_SYSCALL_GRAPHICS_BUSY = 20,
+  /* 21 (former graphics subscription) is retired; returns ENOSYS. */
+  /* Single hardware-selected MIDI channel; all parameters are 0..127. */
+  AURORA_SYSCALL_MIDI_NOTE_ON = 22,  /* r1=note, r2=velocity; 0=release */
+  AURORA_SYSCALL_MIDI_NOTE_OFF = 23, /* r1=note */
+  AURORA_SYSCALL_MIDI_PROGRAM = 24,  /* r1=zero-based instrument */
+  AURORA_SYSCALL_MIDI_ALL_NOTES_OFF = 25,
+  /* r1=word array [note,velocity,hold_ms,gap_ms] repeated r2 times (1..64).
+   * r3=0 once, 1 loop background, 2 foreground effect; note128=rest. */
+  AURORA_SYSCALL_MIDI_SEQUENCE = 26,
+  /* Bit0=background exists, bit1=effect exists. No completion callback. */
+  AURORA_SYSCALL_MIDI_SEQUENCE_BUSY = 27,
+  /* r1=eight-word UROM/URAM descriptor, r2=1 opaque/2 transparent, r3=0.
+   * Returns 0 when accepted, not when drawing has completed. */
+  AURORA_SYSCALL_GRAPHICS_BITMAP = 28,
+  /* r1=milliseconds (0..INT32_MAX), r2=r3=0. Event-interruptible.
+   * 0 yields; positive values block until tick timeout or a subscribed event. */
+  AURORA_SYSCALL_SLEEP = 29,
 };
+
+#define AURORA_GRAPHICS_WIDTH 160u
+#define AURORA_GRAPHICS_HEIGHT 100u
+
+/* Use static/global storage, never a user-stack local descriptor.
+ * Row-major, bit0=top-left; width*height <=64. No scaling or tiling. */
+typedef struct aurora_graphics_bitmap {
+  aurora_word_t x, y, width, height;
+  aurora_word_t color, background;
+  aurora_word_t data_low, data_high;
+} aurora_graphics_bitmap;
 
 #define AURORA_CONSOLE_WRITE_MAX 64u
 
@@ -55,6 +92,7 @@ enum {
   AURORA_EAGAIN = -2,
   AURORA_ENOSYS = -3,
   AURORA_EFAULT = -4,
+  AURORA_EBUSY = -5,
 };
 
 #endif

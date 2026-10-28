@@ -1,7 +1,7 @@
 # Aurora-32
 
 Aurora-32 是一个自定义 32 位、字寻址、微程序控制的 CPU 项目。项目包含电路、
-主/用户/中断微码、早期裸机示例、双进程内核、用户态终端程序，以及配套的
+主/用户/中断微码、早期裸机示例、双进程内核、用户态终端与图形程序，以及配套的
 Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 
 > **不受支持、已弃用：** [deprecated-bare-metal/](deprecated-bare-metal/README.md)
@@ -62,11 +62,12 @@ Windows x64 Clang/LLVM 工具快照。本文档整理于 2026-09-14。
 - [用户程序总览](docs/user_program/README.md)
 - [计算器](docs/user_program/calculator/README.md)
 - [计算器跟踪版本](docs/user_program/calculator-trace/README.md)
-- [5×5 五子棋](docs/user_program/tic-tac-toe/README.md)
+- [屏幕版 5×5 五子棋](docs/user_program/gomoku-screen/README.md)
 - [猜数字](docs/user_program/guess-number/README.md)
-- [终端贪吃蛇与批量输出](docs/user_program/snake/README.md)
-- [迷宫探险](docs/user_program/maze/README.md)
 - [迷你命令终端与 Telnet](docs/user_program/mini-terminal/README.md)
+- [矩形、双色/透明位图与状态轮询](docs/user_program/graphics-demo/README.md)
+- [屏幕版贪吃蛇](docs/user_program/snake-screen/README.md)
+- [屏幕版迷宫](docs/user_program/maze-screen/README.md)
 - [内核说明](docs/kernel/README.md)
 - [Aurora 架构和编程约定](docs/aurora/README.md)
 - [指令速查](docs/aurora/instruction-set.md)

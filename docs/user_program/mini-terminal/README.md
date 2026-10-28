@@ -25,7 +25,7 @@ ROM 加载 `kernel/build/kernel.hex`，UROM 加载
 命令名大小写不敏感，忽略行首及命令后的分隔空格。回车提交，BS/DEL 删除一个字符；
 针对 Digital Terminal，回显退格使用单个 BS，而非 ANSI 光标控制。
 CRLF 合并为一次提交，空行只重新提示。无历史记录、方向键编辑、引号/转义、管道和重定向。
-每行最多 95 个可打印 ASCII 字符。超长或键盘队列溢出时整行作废，必须按 Enter 重新开始，
+每行最多 95 个可打印 ASCII 字符。超长时整行作废，必须按 Enter 重新开始，
 防止截断后的尾部意外成为 `exit` 等命令。
 
 ## Telnet 收发
@@ -43,15 +43,15 @@ CRLF 合并为一次提交，空行只重新提示。无历史记录、方向键
 每行最多保存 256 个数据字节；超长行整行作废，在下一个换行时提示，然后恢复接收。
 **网络输入不会自动执行命令，也不会转发为本地键盘输入。**
 
-用户 Telnet 队列为 64 槽（有效 63），满时丢弃待处理输入及未完成接收行，
-等后续换行时才输出丢失提示；内核另有独立 63 字节有效接收队列。
-接收量超出处理速度时可能丢数据，本例不是可靠流协议实现。普通键盘回调仍遵循内核忙时丢键策略。
-所有解析/输出在前台进行，两个回调都只负责短时入队。
+键盘事件由内核按 FIFO 保存，并从队列取出后进入普通 C 回调；用户程序不再维护事件队列或过滤序号。
+回调直接处理业务，可以输出、调用普通函数和被 tick 抢占；键盘与 Telnet 回调互不嵌套。
+主循环使用 `system.WaitEvent()` 等待，事件到达后由内核唤醒。
+内核 FIFO 可用 63 槽，满时丢新事件并累计 `system.EventDrops()`；本示例检测到溢出便提示并以代码 1 退出，避免继续使用缺失输入。
+键盘与 Telnet 的业务解析和输出在互不嵌套的回调中运行；两个行缓冲是编辑状态，不是事件队列。
 
 ## 用户库接口
 
-本地键盘使用 `aurora_kbqueue.h` 的 `kbqueue.Init()` 和 `kbqueue.Next()`，
-与下面的 Telnet 接收队列独立。键盘溢出时作废正在编辑的命令，等待回车重置。
+本地键盘使用 `system.io.Subscribe`，远端使用 `system.telnet.Subscribe`，空闲主循环调用 `system.WaitEvent()`。
 屏幕批量输出使用 `system.io.buffer`，不再依赖独立 text 库。
 
 ```c
@@ -59,12 +59,12 @@ system.telnet.PutChar('A');       // 返回 0：写入低 8 位
 int c = system.telnet.GetChar(); // 内核队列非阻塞读取；空队列 -2
 system.telnet.Write(words, n);   // 全局字数组，n <= 64，成功返回 n
 system.telnet.Subscribe(on_rx); // 也可用 aurora_telnet_subscribe(on_rx)
-system.telnet.Subscribe(0);     // 取消订阅，不清空剩余队列
+system.telnet.Subscribe(0);     // 取消订阅，清除该来源的待处理事件
 ```
 
 `on_rx(aurora_word_t event)` 接收 `0xA6SSSSCC`：非零 16 位序号和低 8 位数据。
 数据字节 0、255 都合法。回调正常 `return`，由公共跳板通过系统调用 7 恢复原现场。
-GetChar 与回调消费同一内核队列，不应同时作为两条独立消费通道使用。
+GetChar 只用于未订阅模式；已经订阅时返回 EBUSY，不和回调竞争事件。
 Write 仅接受 UROM/URAM 全局缓冲，不接受 UStack，不要求零终止；非法整段请求不会部分输出。
 
 ## 验证与目录清理
@@ -73,4 +73,4 @@ Write 仅接受 UROM/URAM 全局缓冲，不接受 UStack，不要求零终止�
 [构建验证记录](../../build-tools/verification.md)。这些验证不等同于 Digital 电路时序测试。
 
 2026-10-19 已移除程序目录中的测试脚本、替身和测试产物，程序仅保留 C 源码、README 和 build。
-正常构建不依赖 tests/common；公共键盘队列与系统 IO 库仍保留在 `user-programs/include/`。
+正常构建不依赖 tests/common；系统 IO/事件 API 头文件仍保留在 `user-programs/include/`；事件队列实现在内核。

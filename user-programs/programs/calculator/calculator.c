@@ -6,7 +6,6 @@ AURORA_USER_PROGRAM;
 #define MAX_TOKEN 512
 #define UMINUS 127
 #define UPLUS 126
-#define INPUT_QUEUE_SIZE 64
 #define INPUT_COMPLETE 0x13579BDF
 
 /* Preserve the original stack algorithm without mixing its data with the C
@@ -32,11 +31,6 @@ volatile int post_expr[MAX_TOKEN * 2] __attribute__((section(".noinit")));
 volatile int calculation_stack[MAX_TOKEN * 2]
     __attribute__((section(".noinit")));
 volatile int calculation_stack_pointer;
-volatile aurora_word_t input_queue[INPUT_QUEUE_SIZE]
-    __attribute__((section(".noinit")));
-volatile aurora_word_t input_queue_read;
-volatile aurora_word_t input_queue_write;
-volatile aurora_word_t last_processed_irq_sequence;
 volatile aurora_word_t keyboard_event_radix = 256u;
 
 __attribute__((noinline, optnone)) static void
@@ -80,66 +74,16 @@ static int should_pop_operator(int stack_words, int top_op, int top_priority,
   return 1;
 }
 
-__attribute__((noreturn)) void _start(void) {
-  /* This must be the first source-level operation in a user program. */
-  aurora.SetUpStackPointer();
+static void reset_input(void) {
+  token_count = -1; input_done = has_digit = current_value = err_flag = 0;
+  calculation_stack_pointer = 0;
+  system.io.PutString("Enter expression, end with <Enter>:\n>> ");
+}
 
-  /* Keep the callback subscribed permanently.  It only appends one tagged
-   * word to the user SPSC queue and never invokes a nested system call. */
-  (void)aurora_keyboard_subscribe(keyboard_callback);
-
-  while (1) {
-    input_queue_read = input_queue_write;
-    token_count = -1;
-    input_done = 0;
-    has_digit = 0;
-    current_value = 0;
-    err_flag = 0;
-    calculation_stack_pointer = 0;
-
-    system.io.PutString("Enter expression, end with <Enter>:\n>> ");
-
-    while (input_done != INPUT_COMPLETE) {
-      aurora_word_t read_index = input_queue_read;
-      aurora_word_t write_index = input_queue_write;
-      if (read_index == write_index) {
-        aurora.Nop();
-        continue;
-      }
-
-      aurora_word_t event_word = input_queue[read_index];
-      input_queue_read = (read_index + 1u) & (INPUT_QUEUE_SIZE - 1u);
-      if ((event_word & 0xff000000u) != 0xA5000000u) {
-#ifdef AURORA_CALCULATOR_TRACE
-        system.io.PutString("{!");
-        system.io.PutInt((int)event_word);
-        system.io.PutChar('}');
-#endif
-        /* The producer snapshot is the first slot after all data that was
-         * committed when this iteration began.  Resynchronize there so an
-         * invalid slot cannot make the consumer replay the whole ring. */
-        input_queue_read = write_index;
-        continue;
-      }
-      /* DIV is used deliberately.  Aurora's physical SFT direction encoding
-       * is not a conventional positive-count C right shift on this CPU. */
-      aurora_word_t sequence =
-          (event_word & 0x00ffff00u) / keyboard_event_radix;
-      /* A matching kernel starts at sequence 1.  Zero is either an invalid
-       * callback frame or unwritten queue data and must never reach parser
-       * state. */
-      if (sequence == 0u || sequence <= last_processed_irq_sequence)
-        continue;
-      last_processed_irq_sequence = sequence;
-#ifdef AURORA_CALCULATOR_TRACE
-      system.io.PutChar('{');
-      system.io.PutInt((int)sequence);
-      system.io.PutChar('}');
-#endif
-      process_input(event_word & 0xffu);
-    }
-    input_queue_read = input_queue_write;
-
+/* Original infix-to-postfix and software-stack evaluator, now serialized
+ * with parsing inside the non-nested kernel-delivered callback. */
+static void evaluate_expression(void) {
+  do {
     if (token_count < 0) {
       system.io.PutString("InputError: No input received.\n");
       err_flag = 1;
@@ -326,21 +270,34 @@ __attribute__((noreturn)) void _start(void) {
       tokens[i] = 0x0;
       post_expr[i] = 0x0;
     }
+  } while (0);
+}
+
+__attribute__((noinline, optnone)) static void
+keyboard_callback(aurora_word_t event) {
+  if (system.EventDrops() != 0u) {
+    system.io.PutString("\nInput event queue overflow. Exiting safely.\n");
+    system.Exit(1);
+  }
+#ifdef AURORA_CALCULATOR_TRACE
+  system.io.PutChar('{');
+  system.io.PutInt((int)((event & 0x00ffff00u) / keyboard_event_radix));
+  system.io.PutChar('}');
+#endif
+  process_input(aurora_event_character(event));
+  if (input_done == INPUT_COMPLETE) {
+    evaluate_expression();
+    reset_input();
   }
 }
 
-/* The kernel places a unique hardware-IRQ sequence in bits 31:8.  Keep this
- * asynchronous path to a bounded SPSC append; parsing and system calls run
- * only in the sequential main context. */
-__attribute__((noinline, optnone)) static void
-keyboard_callback(aurora_word_t input_character) {
-  aurora_word_t write_index = input_queue_write;
-  aurora_word_t read_index = input_queue_read;
-  aurora_word_t next = (write_index + 1u) & (INPUT_QUEUE_SIZE - 1u);
-  if (next == read_index)
-    return;
-  input_queue[write_index] = input_character;
-  input_queue_write = next;
+__attribute__((noreturn)) void _start(void) {
+  aurora.SetUpStackPointer();
+  system.DeferEvents();
+  if (system.io.Subscribe(keyboard_callback) != AURORA_OK) system.Exit(1);
+  reset_input();
+  system.ResumeEvents();
+  for (;;) system.WaitEvent();
 }
 
 __attribute__((noinline, optnone)) static void

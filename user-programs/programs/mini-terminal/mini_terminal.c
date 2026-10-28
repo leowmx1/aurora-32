@@ -1,6 +1,5 @@
 #include <aurora.h>
 #include <aurora_system.h>
-#include <aurora_kbqueue.h>
 
 AURORA_USER_PROGRAM;
 #define LINE_CAPACITY 96u
@@ -9,19 +8,10 @@ static unsigned int line_length, arg_start;
 /* Keep flags word-sized; avoid unsupported optimizer-created i8 globals. */
 static volatile int skip_lf, discard_line;
 static aurora_io_buffer text;
-static volatile aurora_word_t net_queue[64] __attribute__((section(".noinit")));
-static volatile aurora_word_t net_read, net_write, net_overflow;
-static aurora_word_t net_sequence, net_tx[64];
+static aurora_word_t net_tx[64];
 #define NET_LINE_CAPACITY 256u
 static aurora_word_t net_line[NET_LINE_CAPACITY], net_line_length;
 static volatile int net_skip_lf, net_discard_line;
-
-static void telnet_callback(aurora_word_t event) {
-  aurora_word_t next = (net_write + 1u) & 63u;
-  if (next == net_read) { net_overflow = 1u; return; }
-  net_queue[net_write] = event;
-  net_write = next;
-}
 
 static void prompt(void) { system.io.PutString("aurora> "); }
 static int space(int c) { return c == ' ' || c == '\t'; }
@@ -70,25 +60,14 @@ static void show_net_line(void) {
   flush_text();
 }
 
-static void receive_text(void) {
-  if (net_overflow) {
-    net_overflow = 0u;
-    net_read = net_write;
-    net_line_length = 0u;
-    net_skip_lf = 0;
-    net_discard_line = 1;
+static void telnet_callback(aurora_word_t event) {
+  if (system.EventDrops() != 0u) {
+    system.io.PutString("\nInput event queue overflow. Exiting safely.\n");
+    system.Exit(1);
   }
-  for (unsigned int n = 0; n < 63u; ++n) {
-    aurora_word_t read = net_read;
-    if (read == net_write) break;
-    aurora_word_t event = net_queue[read];
-    net_read = (read + 1u) & 63u;
-    aurora_word_t seq = event & 0x00ffff00u;
-    if ((event & 0xff000000u) != 0xa6000000u || !seq || seq == net_sequence) continue;
-    net_sequence = seq;
-    aurora_word_t c = event & 0xffu;
+    aurora_word_t c = aurora_event_character(event);
     /* CRLF is one delimiter even across callbacks and foreground passes. */
-    if (c == '\n' && net_skip_lf) { net_skip_lf = 0; continue; }
+    if (c == '\n' && net_skip_lf) { net_skip_lf = 0; return; }
     net_skip_lf = 0;
     if (c == '\r' || c == '\n') {
       net_skip_lf = c == '\r';
@@ -104,7 +83,6 @@ static void receive_text(void) {
         net_line[net_line_length++] = c >= 32u && c <= 126u ? c : '.';
       }
     }
-  }
 }
 
 static void exit_command(void) {
@@ -190,28 +168,23 @@ static void terminal_key(int c) {
   system.io.PutChar((char)c);
 }
 
-__attribute__((noreturn)) void _start(void) {
-  aurora.SetUpStackPointer();
-  line_length = 0u; skip_lf = discard_line = 0;
-  net_read = net_write = net_overflow = net_sequence = 0u;
-  net_line_length = 0u;
-  net_skip_lf = net_discard_line = 0;
-  if (kbqueue.Init() != AURORA_OK) {
-    system.io.PutString("Keyboard subscription failed.\n");
+static void keyboard_callback(aurora_word_t event) {
+  if (system.EventDrops() != 0u) {
+    system.io.PutString("\nInput event queue overflow. Exiting safely.\n");
     system.Exit(1);
   }
-  if (system.telnet.Subscribe(telnet_callback) != AURORA_OK) {
-    system.io.PutString("Telnet subscription failed.\n"); system.Exit(1);
-  }
+  terminal_key((int)(aurora_event_character(event)));
+}
+
+__attribute__((noreturn)) void _start(void) {
+  aurora.SetUpStackPointer();
+  system.DeferEvents();
+  if (system.io.Subscribe(keyboard_callback) != AURORA_OK) system.Exit(1);
+  line_length = 0u; skip_lf = discard_line = 0;
+  net_line_length = 0u; net_skip_lf = net_discard_line = 0;
   system.io.PutString("\fAurora-32 mini terminal\nType help. Enter submits; Backspace edits.\n");
   prompt();
-  for (;;) {
-    receive_text();
-    int c = kbqueue.Next();
-    if (c == AURORA_KBQUEUE_OVERFLOW) {
-      line_length = 0u; skip_lf = 0; discard_line = 1;
-      system.io.PutString("\nInput lost. Press Enter to reset.\n");
-    } else if (c >= 0) terminal_key(c);
-    else aurora.Nop();
-  }
+  if (system.telnet.Subscribe(telnet_callback) != AURORA_OK) system.Exit(1);
+  system.ResumeEvents();
+  for (;;) system.WaitEvent();
 }

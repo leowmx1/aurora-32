@@ -1,6 +1,6 @@
 param(
   [string]$KernelObject = (Join-Path $PSScriptRoot '..\kernel\build\kernel.o'),
-  [ValidateSet('all', 'calculator', 'calculator-trace', 'tic-tac-toe', 'guess-number', 'snake', 'maze', 'mini-terminal')]
+  [ValidateSet('all', 'calculator', 'calculator-trace', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'mini-terminal', 'graphics-demo')]
   [string]$Program = 'all'
 )
 $ErrorActionPreference = 'Stop'
@@ -20,11 +20,12 @@ $entryDefine = '-DAURORA_SYSCALL_ENTRY_ADDRESS=0x{0:X8}' -f $entryWord
 $programs = @(
   @{ Name='calculator'; Directory='calculator'; Source='calculator.c'; Extra=@() },
   @{ Name='calculator-trace'; Directory='calculator'; Source='calculator.c'; Extra=@('-DAURORA_CALCULATOR_TRACE=1') },
-  @{ Name='tic-tac-toe'; Directory='tic-tac-toe'; Source='tic_tac_toe.c'; Extra=@() },
+  @{ Name='gomoku-screen'; Directory='gomoku-screen'; Source='gomoku_screen.c'; Extra=@() },
   @{ Name='guess-number'; Directory='guess-number'; Source='guess_number.c'; Extra=@() },
-  @{ Name='snake'; Directory='snake'; Source='snake.c'; Extra=@() },
-  @{ Name='maze'; Directory='maze'; Source='maze.c'; Extra=@() },
-  @{ Name='mini-terminal'; Directory='mini-terminal'; Source='mini_terminal.c'; Extra=@() }
+  @{ Name='snake-screen'; Directory='snake-screen'; Source='snake_screen.c'; Extra=@() },
+  @{ Name='maze-screen'; Directory='maze-screen'; Source='maze_screen.c'; Extra=@() },
+  @{ Name='mini-terminal'; Directory='mini-terminal'; Source='mini_terminal.c'; Extra=@() },
+  @{ Name='graphics-demo'; Directory='graphics-demo'; Source='graphics_demo.c'; Extra=@() }
 )
 foreach ($item in $programs) {
   if ($Program -ne 'all' -and $Program -ne $item.Name) { continue }

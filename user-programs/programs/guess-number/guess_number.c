@@ -3,17 +3,8 @@
 
 AURORA_USER_PROGRAM;
 
-#define QUEUE_SIZE 64u
 #define LINE_SIZE 32u
 
-/* Callback produces complete events; the foreground consumes them. */
-static volatile aurora_word_t input_queue[QUEUE_SIZE]
-    __attribute__((section(".noinit")));
-static volatile aurora_word_t queue_read;
-static volatile aurora_word_t queue_write;
-static volatile aurora_word_t queue_overflow;
-static volatile unsigned int idle_ticks;
-static aurora_word_t last_sequence;
 /* One character per hardware word, as in the calculator input buffer. */
 static int line[LINE_SIZE];
 static unsigned int line_length;
@@ -24,17 +15,6 @@ static int upper_bound;
 static int secret;
 static int attempts;
 static unsigned int random_state;
-
-static void keyboard_callback(aurora_word_t event_word) {
-  aurora_word_t write_index = queue_write;
-  aurora_word_t next = (write_index + 1u) & (QUEUE_SIZE - 1u);
-  if (next == queue_read) {
-    queue_overflow = 1u;
-    return;
-  }
-  input_queue[write_index] = event_word;
-  queue_write = next;
-}
 
 /* Convert a 32-bit bit pattern without signed overflow, including INT_MIN. */
 static int signed_word(unsigned int bits) {
@@ -199,48 +179,26 @@ static void process_character(unsigned int c) {
   system.io.PutChar((char)c);
 }
 
+static void keyboard_callback(aurora_word_t event) {
+  if (system.EventDrops() != 0u) {
+    system.io.PutString("\nInput event queue overflow. Exiting safely.\n");
+    system.Exit(1);
+  }
+  random_state = random_state * 1664525u + system.TimeMs() + event;
+  process_character(aurora_event_character(event));
+}
+
 __attribute__((noreturn)) void _start(void) {
   aurora.SetUpStackPointer();
-  queue_read = 0u;
-  queue_write = 0u;
-  queue_overflow = 0u;
-  idle_ticks = 0u;
-  last_sequence = 0u;
+  system.DeferEvents();
+  if (system.io.Subscribe(keyboard_callback) != AURORA_OK) system.Exit(1);
   line_length = 0u;
   skip_lf = 0;
   phase = 0;
   random_state = 0x6d2b79f5u;
-  if (aurora_keyboard_subscribe(keyboard_callback) != AURORA_OK) {
-    system.io.PutString("Keyboard subscription failed.\n");
-    system.Exit(1);
-  }
   system.io.PutString("Guess the number!\nSet an inclusive integer range.\n"
                       "Enter submits; Backspace edits; Q + Enter quits.\n");
   prompt();
-  for (;;) {
-    if (queue_overflow) {
-      queue_overflow = 0u;
-      queue_read = queue_write;
-      line_length = 0u;
-      skip_lf = 0;
-      system.io.PutString("\nInput queue full; please re-enter this line.\n");
-      prompt();
-    }
-    aurora_word_t read_index = queue_read;
-    if (read_index == queue_write) {
-      ++idle_ticks;
-      aurora.Nop();
-      continue;
-    }
-    aurora_word_t event = input_queue[read_index];
-    queue_read = (read_index + 1u) & (QUEUE_SIZE - 1u);
-    if ((event & 0xff000000u) != 0xa5000000u)
-      continue;
-    aurora_word_t sequence = event & 0x00ffff00u;
-    if (sequence == 0u || sequence == last_sequence)
-      continue;
-    last_sequence = sequence;
-    random_state = random_state * 1664525u + idle_ticks + event;
-    process_character(event & 0xffu);
-  }
+  system.ResumeEvents();
+  for (;;) system.WaitEvent();
 }
