@@ -120,13 +120,11 @@ MIDI 已迁往 `0x0A000000 + N`，不能再把该地址当图形 Y 寄存器。
 
 ## 构建与验证
 
-`./build-tools/build.ps1 -Program graphics-demo`。
-加载 kernel/build/kernel.hex 到 ROM，user-programs/programs/graphics-demo/build/graphics-demo.hex
-到 UROM。内核变化会改变 INT 的直接入口地址，其他用户镜像也必须重新构建。
-
-示例不清屏，保持蓝色中央、红色左上、绿色右下三个矩形，中央增加双色/透明红色 F，
-最后在左 F 下画绿色短条验证切回矩形模式，完成后退出。
-旧显存内容可能保留，可先清空/复位显存。
+正式图形示例为 snake-screen、maze-screen、gomoku-screen 和 tetris。
+执行 `./build-tools/build.ps1` 后加载配套 kernel.hex 与 storage.hex，从系统终端启动。
+原 graphics-demo 项目已移除，矩形/位图参考画面的最小测试源保留于
+`tests/graphics-syscall/render_fixture.c`，不打包成用户示例。
+固定 INT 跳板位于 ROM 字 2，内部函数布局变化不改变这个地址。
 
 tests/graphics-syscall 执行实际 BIN，并在完全不产生图形 IRQ 的设备模型中验证
 立即/延迟完成、连续绘制、边界、忙时拒绝、键盘回调和 tick、卡忙超时。

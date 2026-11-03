@@ -1,0 +1,109 @@
+{
+  "Format": "ASFS",
+  "Version": 2,
+  "BaseAddress": "0x0B000000",
+  "Words": 47868,
+  "SHA256": "AFBF78B30135503576120E879432433B218E959EB49B2E1E965846AF074DBA0E",
+  "Files": [
+    {
+      "Name": "calculator",
+      "Type": "Executable",
+      "ID": 1,
+      "Parent": 0,
+      "OffsetWords": 4096,
+      "Words": 4298,
+      "CapacityWords": 4298,
+      "Checksum": "82AEEF6B"
+    },
+    {
+      "Name": "guess-number",
+      "Type": "Executable",
+      "ID": 2,
+      "Parent": 0,
+      "OffsetWords": 8394,
+      "Words": 2890,
+      "CapacityWords": 2890,
+      "Checksum": "59D4A444"
+    },
+    {
+      "Name": "snake",
+      "Type": "Executable",
+      "ID": 3,
+      "Parent": 0,
+      "OffsetWords": 11284,
+      "Words": 8412,
+      "CapacityWords": 8412,
+      "Checksum": "A0AF0F01"
+    },
+    {
+      "Name": "maze",
+      "Type": "Executable",
+      "ID": 4,
+      "Parent": 0,
+      "OffsetWords": 19696,
+      "Words": 5685,
+      "CapacityWords": 5685,
+      "Checksum": "87F2D3AD"
+    },
+    {
+      "Name": "gomoku",
+      "Type": "Executable",
+      "ID": 5,
+      "Parent": 0,
+      "OffsetWords": 25381,
+      "Words": 6010,
+      "CapacityWords": 6010,
+      "Checksum": "7E14CD4F"
+    },
+    {
+      "Name": "tetris",
+      "Type": "Executable",
+      "ID": 6,
+      "Parent": 0,
+      "OffsetWords": 31391,
+      "Words": 6533,
+      "CapacityWords": 6533,
+      "Checksum": "39F53E90"
+    },
+    {
+      "Name": "txt-viewer",
+      "Type": "Executable",
+      "ID": 7,
+      "Parent": 0,
+      "OffsetWords": 37924,
+      "Words": 5848,
+      "CapacityWords": 5848,
+      "Checksum": "4B98CB1D"
+    },
+    {
+      "Name": "docs",
+      "Type": "Directory",
+      "ID": 8,
+      "Parent": 0,
+      "OffsetWords": 0,
+      "Words": 0,
+      "CapacityWords": 0,
+      "Checksum": "00000000"
+    },
+    {
+      "Name": "docs/welcome.txt",
+      "Type": "Text",
+      "ID": 9,
+      "Parent": 8,
+      "OffsetWords": 43772,
+      "Words": 339,
+      "CapacityWords": 2048,
+      "Checksum": "0000779D"
+    },
+    {
+      "Name": "docs/notes.txt",
+      "Type": "Text",
+      "ID": 10,
+      "Parent": 8,
+      "OffsetWords": 45820,
+      "Words": 144,
+      "CapacityWords": 2048,
+      "Checksum": "0000326C"
+    }
+  ]
+}

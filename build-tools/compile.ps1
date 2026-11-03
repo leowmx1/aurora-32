@@ -53,4 +53,21 @@ if ($entry -lt $base -or $entry -ge ($base + [uint64]16777216) -or
     (($entry - $base) * 4) -ge $bytes.Length) { throw "Entry outside generated $Mode image" }
 & (Join-Path $PSScriptRoot 'bin-to-logisim.ps1') -InputFile $binary -OutputFile $hex | Out-Null
 if ((Get-Content -LiteralPath $hex -TotalCount 1) -ne 'v2.0 raw') { throw 'Bad HEX header' }
+if ($Mode -eq 'user') {
+  $gate = @($ExtraArguments | Where-Object { $_ -match '^-DAURORA_SYSCALL_ENTRY_ADDRESS=' })
+  $gateValue = [uint64]0
+  if ($gate.Count -eq 1) {
+    $gateText = ($gate[0] -split '=')[1]
+    if ($gateText -match '^0[xX][0-9a-fA-F]+$') { $gateValue = [Convert]::ToUInt64($gateText.Substring(2), 16) }
+    elseif ($gateText -match '^[0-9]+$') { $gateValue = [Convert]::ToUInt64($gateText, 10) }
+  }
+  if ($gate.Count -ne 1 -or $gateValue -ne 2) {
+    throw 'Storage executables require the stable kernel gateway at ROM word 2'
+  }
+  $metadata = [ordered]@{ Format='AuroraExecutableSource'; Version=1; ABI=3;
+    SyscallGateway=2; Startup='compiler-init'; Words=($bytes.Length / 4);
+    HexSHA256=(Get-FileHash -LiteralPath $hex -Algorithm SHA256).Hash }
+  [IO.File]::WriteAllText([IO.Path]::ChangeExtension($hex, '.program.json'),
+    ($metadata | ConvertTo-Json) + "`n", (New-Object Text.UTF8Encoding($false)))
+}
 Write-Output "Built: $hex"

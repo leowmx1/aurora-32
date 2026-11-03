@@ -6,7 +6,7 @@
 .\build-tools\build.ps1 -Program maze-screen
 ```
 
-ROM 加载配套 `kernel/build/kernel.hex`，UROM 加载 `build/maze-screen.hex`。
+重新打包 `build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 镜像；在系统终端输入 `maze`。
 不需要屏幕完成 IRQ，设备 busy 完成后自动清零即可。
 文字使用预计算 6×10 双色位图，每字符一次提交并覆盖旧字符背景；地图仍按矩形局部更新。
 需使用支持位图请求 28 的配套内核，原有字体尺寸、字距和颜色不变。

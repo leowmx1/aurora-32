@@ -6,7 +6,7 @@
 static aurora_status_t kernel_console_write_words(aurora_word_t address,
                                                   aurora_word_t count) {
   for (aurora_word_t i = 0u; i < count; ++i)
-    aurora.io.PutChar(aurora.Read(address + i) & 0xffu);
+    console_putchar(aurora.Read(address + i) & 0xffu);
   return (aurora_status_t)count;
 }
 
@@ -39,7 +39,7 @@ kernel_telnet_write(aurora_word_t address, aurora_word_t count) {
   if (end < address || !is_user_read_address(end)) return AURORA_EFAULT;
   if (address < AURORA_URAM_BEGIN && end >= AURORA_URAM_BEGIN) return AURORA_EFAULT;
   for (aurora_word_t i = 0u; i < count; ++i)
-    aurora.Write(AURORA_TELNET_DEVICE, aurora.Read(address + i) & 0xffu);
+    kernel_telnet_putchar(aurora.Read(address + i));
   return (aurora_status_t)count;
 }
 

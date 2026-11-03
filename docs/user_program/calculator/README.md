@@ -65,7 +65,7 @@
 输入路径提供完整边界检查。避免长表达式、过深括号和连续高速粘贴。
 这些固定容量不是内存安全证明；复杂畸形输入仍需要后续加固。
 
-跟踪版的说明见 [calculator-trace](../calculator-trace/README.md)。
+calculator-trace 目标及跟踪输出已移除，正式版算法不变。
 两种镜像来自同一源文件，只能择一加载。
 
 ## 构建与验证
@@ -77,4 +77,4 @@
 总构建脚本先构建内核；已经有匹配内核时可以执行
 `./user-programs/build.ps1 -Program calculator`。
 建议上电后依次输入上表表达式、`1/0`、空回车、`~`，最后大写 Q。
-预期退出后看到内核 `USER_PROCESS exited with code 0` 和停机日志。
+预期退出后看到内核 `USER_PROCESS exited with code 0`，随后回到 `system> `。

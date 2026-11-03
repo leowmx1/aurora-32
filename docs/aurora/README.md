@@ -33,7 +33,9 @@ LLVM 的对象文件、节偏移和符号仍使用字节计数。例如 `llvm-nm
 | timer | 0x08000000 | 系统毫秒计数，模 2^32 |
 | Graphics | 0x09000000–0x09000009 | 低 4 位选 x/y/w/h/color/bgcolor/dataLow/dataHigh/mode/stat |
 | MIDI | 0x0A000000–0x0A00007F | 低 7 位为 N；数据为力度/OnOff/PC |
-| UROM | 0x80000000–0x80ffffff | 用户代码 |
+| EEPROM | 0x0B000000–0x0Bffffff | 程序存储镜像，内核按字读 |
+| LDMA | 0x0C000000–0x0C000004 | 内核专用 Storage → UROM 搬运：origin、target、len、stat、sum |
+| UROM | 0x80000000–0x80ffffff | 用户代码，物理设备为断电归零的 RAM；内核可写，用户不可写 |
 | URAM | 0x81000000–0x81ffffff | 用户数据 |
 | UStack | 0x82000000–0x82ffffff | 用户栈 |
 

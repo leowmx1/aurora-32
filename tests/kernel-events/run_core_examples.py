@@ -27,5 +27,4 @@ def guess_number():
 
 if __name__ == '__main__':
     calculator('calculator')
-    calculator('calculator-trace')
     guess_number()

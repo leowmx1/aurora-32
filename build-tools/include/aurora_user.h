@@ -12,7 +12,8 @@ aurora_event_character(aurora_word_t event) {
   return event;
 }
 
-/* Supplied by build.ps1 after it has located aurora_syscall_entry in ROM. */
+/* Supplied by build.ps1 after verifying aurora_syscall_gateway at ROM word 2.
+ * The two-word JMP gateway stays stable when kernel functions move. */
 #ifndef AURORA_SYSCALL_ENTRY_ADDRESS
 #error "Build user programs with build.ps1 so the syscall ROM address is known"
 #endif
@@ -48,7 +49,7 @@ __aurora_callback_return_trampoline(void) {
 /*
  * The named register variables make this exactly match the Aurora ABI:
  * r0=request/return value, r1-r3=arguments.  INT uses the direct ROM
- * address of aurora_syscall_entry; IRET resumes here in user mode with r0.
+ * address of the stable gateway; IRET resumes here in user mode with r0.
  */
 static __inline__ __attribute__((always_inline)) aurora_status_t
 aurora_syscall(aurora_word_t request, aurora_word_t arg0,

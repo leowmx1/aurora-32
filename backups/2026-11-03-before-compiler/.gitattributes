@@ -1,0 +1,2 @@
+# Preserve recovery HEX bytes and their documented SHA-256 across platforms.
+*.hex -text

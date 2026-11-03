@@ -1,6 +1,6 @@
 param(
   [string]$KernelObject = (Join-Path $PSScriptRoot '..\kernel\build\kernel.o'),
-  [ValidateSet('all', 'calculator', 'calculator-trace', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'mini-terminal', 'graphics-demo')]
+  [ValidateSet('all', 'calculator', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'txt-viewer', 'tetris')]
   [string]$Program = 'all'
 )
 $ErrorActionPreference = 'Stop'
@@ -11,7 +11,7 @@ if (-not (Test-Path -LiteralPath $KernelObject -PathType Leaf)) {
 }
 $symbols = @(& $nm -n $KernelObject)
 if ($LASTEXITCODE -ne 0) { throw 'Cannot read kernel symbols' }
-$entryLines = @($symbols | Where-Object { $_ -match '\s[Tt]\s+aurora_syscall_entry$' })
+$entryLines = @($symbols | Where-Object { $_ -match '\s[Tt]\s+aurora_syscall_gateway$' })
 if ($entryLines.Count -ne 1) { throw 'Expected one defined aurora_syscall_entry in kernel.o' }
 $entryBytes = [Convert]::ToUInt64(($entryLines[0].Trim() -split '\s+')[0], 16)
 if (($entryBytes % 4) -ne 0 -or $entryBytes -ge 67108864) { throw 'Invalid kernel syscall entry' }
@@ -19,13 +19,12 @@ $entryWord = [uint64]($entryBytes / 4)
 $entryDefine = '-DAURORA_SYSCALL_ENTRY_ADDRESS=0x{0:X8}' -f $entryWord
 $programs = @(
   @{ Name='calculator'; Directory='calculator'; Source='calculator.c'; Extra=@() },
-  @{ Name='calculator-trace'; Directory='calculator'; Source='calculator.c'; Extra=@('-DAURORA_CALCULATOR_TRACE=1') },
   @{ Name='gomoku-screen'; Directory='gomoku-screen'; Source='gomoku_screen.c'; Extra=@() },
   @{ Name='guess-number'; Directory='guess-number'; Source='guess_number.c'; Extra=@() },
   @{ Name='snake-screen'; Directory='snake-screen'; Source='snake_screen.c'; Extra=@() },
   @{ Name='maze-screen'; Directory='maze-screen'; Source='maze_screen.c'; Extra=@() },
-  @{ Name='mini-terminal'; Directory='mini-terminal'; Source='mini_terminal.c'; Extra=@() },
-  @{ Name='graphics-demo'; Directory='graphics-demo'; Source='graphics_demo.c'; Extra=@() }
+  @{ Name='tetris'; Directory='tetris'; Source='tetris.c'; Extra=@() },
+  @{ Name='txt-viewer'; Directory='txt-viewer'; Source='txt_viewer.c'; Extra=@() }
 )
 foreach ($item in $programs) {
   if ($Program -ne 'all' -and $Program -ne $item.Name) { continue }

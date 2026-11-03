@@ -9,7 +9,7 @@ static void check(int ok, int code) {
 static void key(aurora_word_t event) {
   check(system.Sleep(1) == AURORA_EBUSY, 80);
   check(system.Sleep(0) == AURORA_EBUSY, 81);
-  ++keys;
+  if(aurora_event_character(event)=='n') ++nets; else ++keys;
 }
 static void net(aurora_word_t event) { ++nets; }
 static void timed(aurora_word_t ms) {
@@ -30,7 +30,7 @@ __attribute__((noreturn)) void _start(void) {
   system.io.PutString("TIMER\n");
   timed(100); /* No subscriptions needed. */
   check(system.io.Subscribe(key) == 0, 7);
-  check(system.telnet.Subscribe(net) == 0, 8);
+  check(system.telnet.Subscribe(net) == AURORA_EBUSY, 8);
   system.io.PutString("KEY\n");
   aurora_word_t start = system.TimeMs();
   check(system.Sleep(1000) == 0, 9);

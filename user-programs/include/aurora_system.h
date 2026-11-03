@@ -2,6 +2,7 @@
 #define AURORA_SYSTEM_H
 
 #include "aurora_user.h"
+#include "aurora_fs.h"
 
 static __inline__ __attribute__((always_inline)) aurora_status_t
 __aurora_system_put_char(char character) {
@@ -176,6 +177,8 @@ typedef struct aurora_system_io_api {
   aurora_status_t (*Subscribe)(aurora_keyboard_callback_t callback);
 } aurora_system_io_api;
 
+/* Reserved legacy ABI: the remote system console owns this device. All four
+ * raw operations return EBUSY. Remote applications use system.io instead. */
 typedef struct aurora_system_telnet_api {
   aurora_status_t (*PutChar)(char character);
   aurora_status_t (*GetChar)(void);
@@ -196,6 +199,7 @@ typedef struct aurora_system_api {
   aurora_system_graphics_api graphics;
   aurora_system_midi_api midi;
   aurora_status_t (*Sleep)(aurora_word_t ms);
+  aurora_system_fs_api fs;
 } aurora_system_api;
 
 static const aurora_system_api system = {{
@@ -215,6 +219,7 @@ __aurora_defer_events, __aurora_resume_events,
  __aurora_graphics_bitmap, __aurora_graphics_bitmap_transparent},
 {__aurora_midi_note_on, __aurora_midi_note_off,
  __aurora_midi_program, __aurora_midi_all_notes_off,
- __aurora_midi_sequence, __aurora_midi_sequence_busy}, __aurora_sleep};
+ __aurora_midi_sequence, __aurora_midi_sequence_busy}, __aurora_sleep,
+ {__aurora_fs_open,__aurora_fs_list,__aurora_fs_info,__aurora_fs_read,__aurora_fs_save}};
 
 #endif

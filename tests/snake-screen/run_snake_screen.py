@@ -165,7 +165,7 @@ def controls():
     cpu.press('q'); cpu.until(lambda: cpu.halted)
     assert 'Quit.' in cpu.output and 'exited with code 0.' in cpu.output
     assert cpu.restores >= 22 and cpu.ticks > 0 and not cpu.snapshots
-    assert sum(c[:4] == (0,0,160,100) for c in cpu.commands) == 1
+    assert sum(c[:4] == (0,0,160,100) for c in cpu.exit_commands) == 1
     assert not cpu.midi_active
     font_commands(cpu, BACKGROUND, {BODY})
     print(f'PASS BIN controls/HUD: dirty move=3 rectangles, turns, pause, speed 10..150, quit; {cpu.restores} context restores')

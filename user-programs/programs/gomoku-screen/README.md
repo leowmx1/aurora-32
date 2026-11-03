@@ -16,5 +16,5 @@
 .\build-tools\build.ps1 -Program gomoku-screen
 ```
 
-加载配套 `kernel/build/kernel.hex` 到 ROM，本目录 `build/gomoku-screen.hex` 到 UROM。
+重新打包 `build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 镜像；在系统终端输入 `gomoku`。
 详细说明：[屏幕五子棋](../../../docs/user_program/gomoku-screen/README.md)。

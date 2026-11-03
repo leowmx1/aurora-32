@@ -2,17 +2,19 @@
 Not a Digital circuit, real socket, or microcode timing test.
 """
 import pathlib
+import os
 import sys
 from collections import deque
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+KERNEL_DIR = pathlib.Path(os.environ.get('AURORA_TEST_KERNEL_DIR', ROOT / 'kernel/build'))
 from run_system import SystemCPU
 from run_target import signed, MASK
 
 
 class DemoCPU(SystemCPU):
     def __init__(self, name, binary):
-        super().__init__(ROOT / 'kernel/build/kernel.bin', binary, 0,
+        super().__init__(KERNEL_DIR / 'kernel.bin', binary, 0,
                          tick_period=10007, key_period=40000)
         self.name = name
         self.output = ''
@@ -32,12 +34,18 @@ class DemoCPU(SystemCPU):
         assert 'Console Write failed' not in self.output
 
     def read(self, address):
+        if address == 0x09000009: return 0  # idle graphics in non-graphics tests
         if address == 0x06000000:
             self.network_reads += 1
             return self.network_word
         return super().read(address)
 
     def write(self, address, value):
+        # Non-graphics tests model an immediately-complete shutdown fill.
+        # GraphicsCPU overrides this range and checks all actual pixels/writes.
+        if 0x09000000 <= address <= 0x09000009:
+            assert self.kernel_mode and not self.ie
+            return
         if address == 0x06000000:
             self.network_out.append(value & 255)
         else:
@@ -118,40 +126,5 @@ class DemoCPU(SystemCPU):
         self.until(lambda: expected in self.output[before:])
 
 
-def terminal():
-    cpu = DemoCPU('terminal', ROOT / 'user-programs/programs/mini-terminal/build/mini-terminal.bin')
-    cpu.until(lambda: cpu.output.endswith('aurora> '))
-    cpu.command('echo Hello', '\nHello\naurora> ')
-    cpu.command('send Aurora', 'Sent to device')
-    assert bytes(cpu.network_out) == b'Aurora\r\n', cpu.network_out
-    # Burst IRQs: first event enters a callback; remaining events arrive while
-    # it is active and must be deferred, never nested, replayed or discarded.
-    cpu.network_in.extend([ord('A'), 0, 255, ord('B')])
-    cpu.until(lambda: len(cpu.delivered) == 4 and not cpu.callback_inflight)
-    deadline = cpu.steps + 20000
-    cpu.until(lambda: cpu.steps >= deadline)
-    assert '[net]' not in cpu.output
-    assert [e & 255 for e in cpu.delivered] == [65, 0, 255, 66], cpu.delivered
-    assert all(e >> 24 == 0xa6 for e in cpu.delivered)
-    assert len(set(cpu.delivered)) == 4
-    assert cpu.network_irqs == cpu.network_reads == 4
-    cpu.network_in.append(13)
-    cpu.until(lambda: '[net] A..B\naurora> ' in cpu.output)
-    cpu.network_in.append(10)
-    cpu.until(lambda: len(cpu.delivered) == 6 and not cpu.callback_inflight)
-    deadline = cpu.steps + 20000
-    cpu.until(lambda: cpu.steps >= deadline)
-    assert cpu.output.count('[net]') == 1
-    cpu.inject_on_key = [ord('X'), ord('Y'), 10]
-    cpu.command('echo race', '\nrace\naurora> ')
-    assert [e & 255 for e in cpu.delivered] == [65, 0, 255, 66, 13, 10, 88, 89, 10]
-    assert cpu.output.count('[net]') == 2 and '[net] XY\n' in cpu.output
-    cpu.command('uptime', ' ms\naurora> ')
-    cpu.command('exit -7', 'USER_PROCESS exited with code -7.')
-    cpu.until(lambda: cpu.halted)
-    assert len(cpu.delivered) == 9 and cpu.ticks > 0 and cpu.keys > 0
-    print(f'PASS terminal BIN: Telnet newline-only display, split CRLF, keyboard overlap, {cpu.ticks} ticks, {cpu.keys} keyboard IRQs')
-
-
-if __name__ == '__main__':
-    terminal()
+# The retired mini-terminal raw-Telnet regression is superseded by
+# tests/storage/run_remote.py (independent local/remote system consoles).

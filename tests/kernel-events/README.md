@@ -7,24 +7,17 @@ It is not a Digital circuit, microcode, propagation-delay or socket test.
 Run from the repository root (Python 3 required only for testing):
 
 ```powershell
-.\build-tools\build.ps1
-.\build-tools\build-user.ps1 .\tests\kernel-events\event_contract.c -KernelObject .\kernel\build\kernel.o
-python .\tests\kernel-events\run_events.py
-python .\tests\kernel-events\run_core_examples.py
-python .\tests\kernel-events\run_examples.py
-.\build-tools\build-user.ps1 .\tests\kernel-events\sleep_contract.c -KernelObject .\kernel\build\kernel.o
-python .\tests\kernel-events\run_sleep.py
+.\tests\run-regression.ps1
 ```
 
-`run_events.py` tests two tick periods (10007 and 3001 model instructions): mixed-source ordering,
+`run_events.py` tests two tick periods (10007 and 3001 model instructions): keyboard FIFO ordering,
 63 admitted/7 dropped from a 70-event burst, nested deferral, blocked wait, unsubscribe compaction,
 callbacks yielding twice, and wakeup/idle handoff while no tick is due.
-Each run checks all 16 registers, FLAGS, PC, USP and UFP against the suspended context on 69 returns.
+Each run checks all 16 registers, FLAGS, PC, USP and UFP against the suspended context on 64 returns.
 The idle check also asserts that a blocked user executes no instructions and the system does not spin in Yield syscalls.
 Screen Snake is covered separately by `tests/snake-screen/run_snake_screen.py`.
 Sleep covers real timed blocking with no subscription/user work/idle Yield spam,
-zero/invalid/reserved arguments, deferred/callback rejection, key and Telnet early
-wake, wake credit before Sleep, cancellation of stale deadlines, subsequent
+zero/invalid/reserved arguments, deferred/callback rejection, key early wake, rejected raw Telnet requests, wake credit before Sleep, cancellation of stale deadlines, subsequent
 indefinite WaitEvent, timer wrap and MIDI note changes while the user is blocked.
 Snake additionally verifies early turn/Q wake without a due tick at a 150ms step.
 The former terminal Snake regression has been removed with that program.

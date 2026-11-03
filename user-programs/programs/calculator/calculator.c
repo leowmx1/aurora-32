@@ -90,17 +90,6 @@ static void evaluate_expression(void) {
       continue;
     }
 
-#ifdef AURORA_CALCULATOR_TRACE
-    system.io.PutString("{P:tc=");
-    system.io.PutInt(token_count);
-    system.io.PutString(",t0=");
-    system.io.PutInt(tokens[0]);
-    system.io.PutString(",v0=");
-    system.io.PutInt(tokens[1]);
-    system.io.PutString(",sp=");
-    system.io.PutInt(calculation_stack_pointer);
-    system.io.PutString("}");
-#endif
 
     int original_stack_pointer = STACK_POINTER();
     int post_expr_pointer = 0;
@@ -169,17 +158,6 @@ static void evaluate_expression(void) {
       post_expr_pointer++;
     }
 
-#ifdef AURORA_CALCULATOR_TRACE
-    system.io.PutString("{R:pp=");
-    system.io.PutInt(post_expr_pointer);
-    system.io.PutString(",p0=");
-    system.io.PutInt(post_expr[0]);
-    system.io.PutString(",v0=");
-    system.io.PutInt(post_expr[1]);
-    system.io.PutString(",sp=");
-    system.io.PutInt(calculation_stack_pointer);
-    system.io.PutString("}");
-#endif
 
     for (int i = 0; i < post_expr_pointer && !err_flag; i++) {
       if (post_expr[i * 2] == 0x1) {
@@ -242,15 +220,6 @@ static void evaluate_expression(void) {
       }
     }
 
-#ifdef AURORA_CALCULATOR_TRACE
-    system.io.PutString("{E:sp=");
-    system.io.PutInt(calculation_stack_pointer);
-    system.io.PutString(",base=");
-    system.io.PutInt(original_stack_pointer);
-    system.io.PutString(",err=");
-    system.io.PutInt(err_flag);
-    system.io.PutString("}");
-#endif
 
     if (!err_flag &&
         STACK_POINTER() - original_stack_pointer != 1) {
@@ -279,11 +248,6 @@ keyboard_callback(aurora_word_t event) {
     system.io.PutString("\nInput event queue overflow. Exiting safely.\n");
     system.Exit(1);
   }
-#ifdef AURORA_CALCULATOR_TRACE
-  system.io.PutChar('{');
-  system.io.PutInt((int)((event & 0x00ffff00u) / keyboard_event_radix));
-  system.io.PutChar('}');
-#endif
   process_input(aurora_event_character(event));
   if (input_done == INPUT_COMPLETE) {
     evaluate_expression();

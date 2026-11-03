@@ -61,7 +61,7 @@ def run(wrap):
     assert c.note64_user_steps == sleeping_user_steps, 'MIDI did not advance while user slept'
     assert not c.midi_active
     c.blocked(4)
-    c.inject.append((2, ord('n')))
+    c.inject.append((1, ord('n')))
     c.until(lambda: c.output.endswith('RACE\n'))
     c.inject.append((1, ord('r')))
     c.until(lambda: c.output.endswith('WAIT\n'))
@@ -76,7 +76,7 @@ def run(wrap):
     c.until(lambda: c.halted)
     assert 'SLEEP CONTRACT PASS' in c.output and 'exited with code 0.' in c.output, c.output
     assert c.restores == 4 and not c.snapshots
-    print(f'PASS Sleep: timed block, zero/invalid/deferred/callback, key/net early wake, credit race, cancel, WaitEvent, wrap={wrap}')
+    print(f'PASS Sleep: timed block, zero/invalid/deferred/callback, key early wake, raw net rejected, credit race, cancel, WaitEvent, wrap={wrap}')
 
 
 if __name__ == '__main__':

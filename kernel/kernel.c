@@ -9,6 +9,16 @@ AURORA_KERNEL_PROGRAM;
 __asm__(
     ".globl __aurora_rom_entry\n"
     "__aurora_rom_entry:\n"
+    "  jmp aurora_reset_entry\n"
+    ".globl aurora_syscall_gateway\n"
+    "aurora_syscall_gateway:\n"
+    "  jmp aurora_syscall_entry\n"
+    "aurora_reset_entry:\n"
+    "  ldi r14, 0x02000000\n"
+    "  lsp r14\n"
+    "  lfp r14\n"
+    "  di\n"
+    "  call aurora_early_boot_log\n"
     "  jmp _start\n");
 
 enum {
@@ -18,14 +28,14 @@ enum {
   AURORA_URAM_END = 0x82000000u,
   AURORA_TICK_DEVICE = 0x07000000u,
   AURORA_TELNET_DEVICE = 0x06000000u,
-  TELNET_QUEUE_SIZE = 64u,
+  TELNET_QUEUE_SIZE = 128u,
   /* Read-only kernel device: system uptime in milliseconds modulo 2^32. */
   AURORA_TIMER_DEVICE = 0x08000000u,
   AURORA_USER_KERNEL_STACK = 0x02010000u,
   AURORA_CALLBACK_KERNEL_STACK_0 = 0x02020000u,
   AURORA_CALLBACK_KERNEL_STACK_1 = 0x02030000u,
   AURORA_INTERRUPT_FRAME_WORDS = 18u,
-  KEYBOARD_QUEUE_SIZE = 32u,
+  KEYBOARD_QUEUE_SIZE = 128u,
   EVENT_QUEUE_SIZE = 64u,
   PROCESS_SYSTEM = 0u,
   PROCESS_USER = 1u,
@@ -69,6 +79,33 @@ static volatile aurora_word_t user_fault_vector;
 static volatile aurora_word_t user_exit_code;
 static volatile aurora_process_context process_table[PROCESS_COUNT];
 static volatile aurora_word_t current_process;
+/* SYSTEM owns shell_console; user_console is fixed for a program's lifetime. */
+static volatile aurora_word_t shell_console, user_console;
+static volatile aurora_word_t console_prompt[2], console_banner[2];
+static volatile aurora_word_t input_swallow_lf[2];
+static volatile aurora_word_t shell_fs_busy;
+/* No Close syscall yet: file IDs exposed to a user stay pinned until exit. */
+static volatile aurora_word_t user_file_refs[65];
+static volatile aurora_word_t keyboard_drops, telnet_drops;
+/* Lifetime device traffic, including CR/LF; never reset on process exit. */
+static volatile aurora_word_t telnet_rx_bytes, telnet_tx_bytes;
+static volatile aurora_word_t telnet_rx_ms, telnet_tx_ms;
+static volatile aurora_word_t telnet_rx_seen, telnet_tx_seen;
+static void kernel_telnet_putchar(aurora_word_t character) {
+  aurora.Write(AURORA_TELNET_DEVICE, character & 0xffu);
+  ++telnet_tx_bytes;
+  telnet_tx_ms = aurora.Read(AURORA_TIMER_DEVICE);
+  telnet_tx_seen = 1u;
+}
+/* Select by scheduled process, not a shared temporary redirection flag: a
+ * preempted shell print cannot redirect a user's simultaneous output. */
+static __inline__ __attribute__((always_inline)) void console_putchar(aurora_word_t c) {
+  aurora_word_t port=current_process==PROCESS_USER?user_console:shell_console;
+  if(port) {
+    if(c=='\n') kernel_telnet_putchar('\r');
+    kernel_telnet_putchar(c);
+  } else aurora.io.PutChar(c);
+}
 
 static int is_user_read_address(aurora_word_t address);
 #include "midi.h"
@@ -77,8 +114,8 @@ extern void aurora_syscall_entry(void);
 void aurora_tick_irq(void);
 void aurora_keyboard_irq(void);
 void aurora_telnet_irq(void);
-__attribute__((interrupt)) void aurora_user_memory_fault(void);
-__attribute__((interrupt)) void aurora_user_illegal_instruction(void);
+void aurora_user_memory_fault(void);
+void aurora_user_illegal_instruction(void);
 
 /* Keep the range checks in comparison form.  Aurora's old constant-AND
  * selector can otherwise spend unbounded time on the optimized /24 test. */
@@ -110,11 +147,11 @@ static void kernel_console_put_int(aurora_word_t bits) {
   aurora_word_t magnitude = bits;
 
   if ((bits & 0x80000000u) != 0u) {
-    aurora.io.PutChar('-');
+    console_putchar('-');
     magnitude = 0u - bits;
   }
   if (magnitude == 0u) {
-    aurora.io.PutChar('0');
+    console_putchar('0');
     return;
   }
   while (magnitude != 0u) {
@@ -122,14 +159,51 @@ static void kernel_console_put_int(aurora_word_t bits) {
     magnitude /= 10u;
   }
   while (count != 0u)
-    aurora.io.PutChar('0' + digits[--count]);
+    console_putchar('0' + digits[--count]);
+}
+
+static void kernel_console_put_uint(aurora_word_t value) {
+  aurora_word_t digits[10], count = 0u;
+  do { digits[count++] = value % 10u; value /= 10u; } while (value);
+  while (count) console_putchar('0' + digits[--count]);
+}
+
+/* Called before compiler-generated RAM initialization: immediates and stack
+ * only. Do not use string literals or initialized globals in this routine. */
+__attribute__((used, noinline)) void aurora_early_boot_log(void) {
+  aurora_word_t digits[10], n=0u, value=aurora.Read(AURORA_TIMER_DEVICE);
+  aurora.io.PutChar('[');
+  do { digits[n++]=value%10u; value/=10u; } while(value);
+  while(n) aurora.io.PutChar('0'+digits[--n]);
+  aurora.io.PutChar(' '); aurora.io.PutChar('m'); aurora.io.PutChar('s');
+  aurora.io.PutChar(']'); aurora.io.PutChar(' ');
+  aurora.io.PutChar('I'); aurora.io.PutChar('n'); aurora.io.PutChar('i');
+  aurora.io.PutChar('t'); aurora.io.PutChar('i'); aurora.io.PutChar('a');
+  aurora.io.PutChar('l'); aurora.io.PutChar('i'); aurora.io.PutChar('z');
+  aurora.io.PutChar('i'); aurora.io.PutChar('n'); aurora.io.PutChar('g');
+  aurora.io.PutChar(' '); aurora.io.PutChar('R'); aurora.io.PutChar('A');
+  aurora.io.PutChar('M'); aurora.io.PutChar('.'); aurora.io.PutChar('\n');
+}
+
+/* Runtime radix avoids the bundled backend's right-shift pseudo/scratch
+ * interaction with callee-save reloads. Keep this printer free of SFT. */
+static volatile aurora_word_t kernel_hex_radix = 16u;
+static void kernel_console_put_hex(aurora_word_t value) {
+  aurora_word_t divisor = 0x10000000u;
+  console_putchar('0'); console_putchar('x');
+  for (aurora_word_t i = 8; i; --i) {
+    aurora_word_t d = value / divisor;
+    console_putchar(d < 10u ? '0' + d : 'A' + d - 10u);
+    value %= divisor;
+    divisor /= kernel_hex_radix;
+  }
 }
 
 /* Boot messages use kernel-resident string literals, so they must not pass
  * through the user-pointer validation used by the PUT_STRING system call. */
 static void kernel_boot_put_string(const char *text) {
   while (*text != '\0') {
-    aurora.io.PutChar((aurora_word_t)*text);
+    console_putchar((aurora_word_t)*text);
     ++text;
   }
 }
@@ -137,23 +211,25 @@ static void kernel_boot_put_string(const char *text) {
 static void kernel_status_prefix(void) {
   aurora_word_t milliseconds = aurora.Read(AURORA_TIMER_DEVICE);
 
-  aurora.io.PutChar('[');
-  kernel_console_put_int(milliseconds);
+  console_putchar('[');
+  kernel_console_put_uint(milliseconds);
   kernel_boot_put_string(" ms");
-  aurora.io.PutChar(']');
-  aurora.io.PutChar(' ');
+  console_putchar(']');
+  console_putchar(' ');
 }
 
 static void kernel_boot_status(const char *message) {
   kernel_status_prefix();
   kernel_boot_put_string(message);
-  aurora.io.PutChar('\n');
+  console_putchar('\n');
 }
 
 static void mark_user_not_runnable(void) {
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
 
   kernel_midi_all_notes_off();
+  /* Cancel outstanding asynchronous drawing before the next program. */
+  aurora.Write(0x09000009u, 0u);
   user->valid = 0u;
   user->waiting = 0u;
   user->sleep_ms = 0u;
@@ -166,27 +242,20 @@ static void mark_user_not_runnable(void) {
   user->callback_active = 0u;
   user->telnet_callback = (aurora_telnet_callback_t)0;
   user->telnet_trampoline = 0u;
+  user->event_defer_depth = 0u;
+  if(user_console) telnet_read=telnet_write;
+  else keyboard_read=keyboard_write;
+  console_prompt[user_console]=1u;
+  console_banner[user_console]=1u;
 }
 
 static void kernel_fault_spacing(void) {
-  aurora.io.PutChar('\n');
-  aurora.io.PutChar('\n');
-  aurora.io.PutChar('\n');
+  console_putchar('\n');
 }
+__attribute__((noreturn)) static void kernel_shutdown(void);
 
-__attribute__((noinline, noreturn)) static void
-halt_after_user_fault(const char *message) {
-  /* No runnable user process remains in the current fixed two-process model. */
-  mark_user_not_runnable();
-
-  kernel_fault_spacing();
-  kernel_boot_status(message);
-  kernel_boot_status("Nothing to do. Halt.");
-  aurora.Halt();
-}
-
-__attribute__((noinline, noreturn)) static void
-halt_after_user_exit(aurora_word_t exit_code) {
+__attribute__((noinline)) static void
+finish_user_exit(aurora_word_t exit_code) {
   user_exit_code = exit_code;
   mark_user_not_runnable();
 
@@ -194,36 +263,42 @@ halt_after_user_exit(aurora_word_t exit_code) {
   kernel_status_prefix();
   kernel_boot_put_string("USER_PROCESS exited with code ");
   kernel_console_put_int(exit_code);
-  kernel_boot_put_string(".\n");
+  kernel_boot_put_string(".\n\n");
+#ifdef AURORA_DIRECT_BOOT
   kernel_boot_status("Nothing to do. Halt.");
-  aurora.Halt();
+  kernel_shutdown();
+#endif
 }
 
 static aurora_status_t kernel_console_put_string(aurora_word_t address) {
   if (!is_user_read_address(address))
     return AURORA_EFAULT;
 
-  /* Bound unterminated input so a bad user pointer cannot monopolize kernel. */
-  for (aurora_word_t length = 0u; length < 4096u; ++length, ++address) {
-    if (!is_user_read_address(address))
-      return AURORA_EFAULT;
+  /* UROM and URAM are contiguous readable regions. Validate once, then bound
+   * every load without a per-character noinline address-validation call. */
+  aurora_word_t available = AURORA_URAM_END - address;
+  aurora_word_t limit = available < 4096u ? available : 4096u;
+  for (aurora_word_t length = 0u; length < limit; ++length, ++address) {
     aurora_word_t character = aurora.Read(address);
     if (character == 0u)
       return AURORA_OK;
-    aurora.io.PutChar(character & 0xffu);
+    console_putchar(character & 0xffu);
   }
-  return AURORA_EINVAL;
+  return available < 4096u ? AURORA_EFAULT : AURORA_EINVAL;
 }
 
 #include "console_write.h"
 #include "graphics.h"
+#include "shutdown.h"
 
 __attribute__((noinline)) static void
 enqueue_keyboard_word(aurora_word_t character) {
   aurora_word_t next = (keyboard_write + 1u) % KEYBOARD_QUEUE_SIZE;
   /* Drop the newest word when full; this never writes user memory in IRQ. */
-  if (next == keyboard_read)
+  if (next == keyboard_read) {
+    ++keyboard_drops;
     return;
+  }
   keyboard_queue[keyboard_write] = character;
   keyboard_write = next;
 }
@@ -377,8 +452,9 @@ __attribute__((noinline, optnone, used)) static aurora_word_t
 handle_keyboard_interrupt(aurora_word_t character, aurora_word_t interrupted_top) {
   aurora_word_t mask = 0xffu;
   __asm__ volatile("and %0, %1, %0" : "+r"(character) : "r"(mask) : "memory");
+  if(input_swallow_lf[0]) { input_swallow_lf[0]=0u; if(character=='\n') return 0u; }
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
-  if (!user->valid) return 0u;
+  if (!user->valid || user_console) { enqueue_keyboard_word(character); return 0u; }
   if (!user->callback) {
     enqueue_keyboard_word(character);
     return 0u;
@@ -392,21 +468,24 @@ handle_keyboard_interrupt(aurora_word_t character, aurora_word_t interrupted_top
 
 __attribute__((noinline, optnone, used)) static aurora_word_t
 handle_telnet_interrupt(aurora_word_t character, aurora_word_t interrupted_top) {
+  ++telnet_rx_bytes;
+  telnet_rx_ms = aurora.Read(AURORA_TIMER_DEVICE);
+  telnet_rx_seen = 1u;
   aurora_word_t mask = 0xffu;
   __asm__ volatile("and %0, %1, %0" : "+r"(character) : "r"(mask) : "memory");
+  if(input_swallow_lf[1]) { input_swallow_lf[1]=0u; if(character=='\n') return 0u; }
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
-  if (!user->valid) return 0u;
-  if (!user->telnet_callback) {
+  if (!user->valid || !user_console || !user->callback) {
     aurora_word_t next = (telnet_write + 1u) % TELNET_QUEUE_SIZE;
     if (next != telnet_read) {
       telnet_queue[telnet_write] = character;
       telnet_write = next;
-    }
+    } else ++telnet_drops;
     return 0u;
   }
   telnet_irq_sequence = (telnet_irq_sequence + 1u) & 0xffffu;
   if (telnet_irq_sequence == 0u) telnet_irq_sequence = 1u;
-  enqueue_user_event(0xa6000000u |
+  enqueue_user_event(0xa5000000u |
                      (telnet_irq_sequence * keyboard_event_radix) | character);
   return deliver_irq_event(interrupted_top);
 }
@@ -434,16 +513,13 @@ take_callback_restore_stack_top(void) {
   return restored_top;
 }
 
-static void initialize_processes(void) {
-  volatile aurora_process_context *system = &process_table[PROCESS_SYSTEM];
+static void initialize_user_process(aurora_word_t entry) {
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
-
-  current_process = PROCESS_SYSTEM;
-  system->valid = 0u; /* Captured by the first idle Yield or tick interrupt. */
+  for(aurora_word_t i=0;i<65u;++i) user_file_refs[i]=0u;
 
   for (aurora_word_t i = 0; i < 16u; ++i)
     user->r[i] = 0u;
-  user->pc = AURORA_UROM_BEGIN;
+  user->pc = entry;
   user->flags = 0u; /* p=0: IRET enters user mode. */
   /* Prebuild the user's first complete interrupt frame.  Later frames stay
    * directly on each process's private kernel stack, avoiding a GPR copy. */
@@ -453,7 +529,7 @@ static void initialize_processes(void) {
   for (aurora_word_t i = 0; i < 16u; ++i)
     aurora.Write(frame++, user->r[i]);
   user->ksp = frame;
-  user->valid = 1u;
+  user->valid = 0u; /* Publish only after the complete context is ready. */
   user->subscribed_vector = 0u;
   user->callback = (aurora_keyboard_callback_t)0;
   user->callback_trampoline = 0u;
@@ -467,7 +543,14 @@ static void initialize_processes(void) {
   user->callback_cooldown = 0u;
   user->telnet_callback = (aurora_telnet_callback_t)0;
   user->telnet_trampoline = 0u;
+  if(user_console) { telnet_read=telnet_write; telnet_irq_sequence=0u; }
+  else { keyboard_read=keyboard_write; keyboard_irq_sequence=0u; }
+  user_fault_vector = user_exit_code = 0u;
+  user->valid = 1u;
 }
+
+#include "shell.h"
+#include "file_api.h"
 
 /*
  * stack_top is KSP after the naked entry has pushed r0-r15.  Below those
@@ -519,10 +602,10 @@ aurora_schedule_from_tick(aurora_word_t stack_top) {
 __attribute__((noreturn)) void _start(void) {
   /* In kernel mode this denotes KSP initialization. */
   aurora.SetUpStackPointer();
-  kernel_boot_status("kernel stack initialized");
+  kernel_boot_status("Kernel stack initialized.");
 
   aurora.DisableInterrupt();
-  kernel_boot_status("interrupts disabled");
+  kernel_boot_status("Interrupts masked for initialization.");
 
   keyboard_read = 0;
   keyboard_write = 0;
@@ -530,39 +613,52 @@ __attribute__((noreturn)) void _start(void) {
   telnet_read = telnet_write = telnet_irq_sequence = 0u;
   user_fault_vector = 0;
   user_exit_code = 0;
+  keyboard_drops = telnet_drops = 0u;
   kernel_midi_initialize();
-  kernel_boot_status("kernel state initialized");
+  kernel_boot_status("Kernel services initialized.");
 
-  initialize_processes();
-  kernel_boot_status("process contexts initialized");
+  current_process = PROCESS_SYSTEM;
+  process_table[PROCESS_SYSTEM].valid = 0u;
+  process_table[PROCESS_USER].valid = 0u;
+#ifdef AURORA_DIRECT_BOOT
+  initialize_user_process(AURORA_UROM_BEGIN);
+#endif
+  kernel_boot_status("Process manager initialized.");
 
   /* Hardware IRQs/exceptions go through IVT; software INT does not. */
   aurora.interrupt.Register(AURORA_IVT_USER_MEMORY_FAULT,
                             aurora_user_memory_fault);
   aurora.interrupt.Register(AURORA_IVT_USER_ILLEGAL_INSTRUCTION,
                             aurora_user_illegal_instruction);
-  kernel_boot_status("exception handlers installed");
+  kernel_boot_status("Exception handlers registered.");
 
   aurora.interrupt.Register(AURORA_IVT_KEYBOARD, aurora_keyboard_irq);
-  kernel_boot_status("keyboard interrupt installed");
+  kernel_boot_status("Keyboard interrupt registered.");
   aurora.interrupt.Register(AURORA_IVT_TELNET, aurora_telnet_irq);
-  kernel_boot_status("telnet interrupt installed");
+  kernel_boot_status("Telnet interrupt registered.");
 
   aurora.interrupt.Register(AURORA_IVT_TICK, aurora_tick_irq);
-  kernel_boot_status("tick scheduler installed");
+  kernel_boot_status("Tick scheduler initialized.");
 
   /* Finish all boot output before enabling preemption so user output cannot
    * be interleaved with the startup banner. */
-  kernel_boot_status("startup complete");
-  aurora.io.PutChar('\n');
-  aurora.io.PutChar('\n');
-  aurora.io.PutChar('\n');
+  kernel_boot_status("Kernel initialization complete.");
+  console_putchar('\n');
 
+  #ifndef AURORA_DIRECT_BOOT
+  shell_initialize();
+  #endif
   /* INT supplies an ordinary complete system frame, including the first
    * boot-to-user transfer. Recheck runnable state inside the atomic syscall;
    * this unlocked check is only an idle-loop optimization. */
   aurora.EnableInterrupt();
   for (;;) {
+    #ifndef AURORA_DIRECT_BOOT
+    shell_service();
+    /* shell_service leaves IRQs disabled after publishing a new user, so no
+     * switch can capture a SYSTEM frame inside the loader/shell call stack. */
+    aurora.EnableInterrupt();
+    #endif
     if (process_table[PROCESS_USER].valid && !process_table[PROCESS_USER].waiting) {
       register aurora_word_t request __asm__("r0") = AURORA_SYSCALL_YIELD;
       __asm__ volatile("int aurora_syscall_entry" : "+r"(request) : : "memory");
@@ -671,16 +767,33 @@ __attribute__((naked, noinline)) void aurora_telnet_irq(void) {
 
 
 
-/* These handlers are installed manually because they are not device names. */
-__attribute__((interrupt)) void aurora_user_memory_fault(void) {
-  user_fault_vector = AURORA_IVT_USER_MEMORY_FAULT;
-  /* No ISA operation can replace the saved user PC, so retrying would loop. */
-  halt_after_user_fault("Memory access violation in USER_PROCESS.");
+/* Hardware user protection faults are fatal: never IRET/retry/schedule out
+ * of the failed context. Ordinary syscall argument errors remain recoverable. */
+__attribute__((noinline, optnone, used, noreturn)) static void
+finish_user_fault(aurora_word_t vector) {
+  aurora.DisableInterrupt();
+  user_fault_vector = vector;
+  if (current_process != PROCESS_USER || !process_table[PROCESS_SYSTEM].valid) {
+    kernel_boot_status("Unexpected exception in SYSTEM. Halt.");
+    kernel_blue_screen(vector,0);
+  }
+  mark_user_not_runnable();
+  kernel_fault_spacing();
+  kernel_boot_status(vector == AURORA_IVT_USER_MEMORY_FAULT ?
+      "Memory access violation in USER_PROCESS." :
+      "Illegal instruction in USER_PROCESS.");
+  console_putchar('\n');
+  kernel_blue_screen(vector,1);
 }
-
-__attribute__((interrupt)) void aurora_user_illegal_instruction(void) {
-  user_fault_vector = AURORA_IVT_USER_ILLEGAL_INSTRUCTION;
-  halt_after_user_fault("Illegal instruction in USER_PROCESS.");
+__attribute__((naked, noinline)) void aurora_user_memory_fault(void) {
+  __asm__ volatile("ldi r0, 0x03000004\n"
+                   "call finish_user_fault\n"
+                   "halt\n");
+}
+__attribute__((naked, noinline)) void aurora_user_illegal_instruction(void) {
+  __asm__ volatile("ldi r0, 0x03000005\n"
+                   "call finish_user_fault\n"
+                   "halt\n");
 }
 
 /*
@@ -737,11 +850,18 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
                                         aurora_word_t arg1,
                                         aurora_word_t arg2) {
   volatile aurora_process_context *user = &process_table[PROCESS_USER];
+  if(request>=AURORA_SYSCALL_FS_LIST && request<=AURORA_SYSCALL_FS_INFO && shell_fs_busy)
+    return AURORA_EBUSY;
   switch (request) {
+  case AURORA_SYSCALL_FS_LIST: return kernel_fs_list(arg0,arg1,arg2);
+  case AURORA_SYSCALL_FS_OPEN: return kernel_fs_open(arg0);
+  case AURORA_SYSCALL_FS_READ: return kernel_fs_read(arg0);
+  case AURORA_SYSCALL_FS_SAVE: return kernel_fs_save(arg0,arg1,arg2);
+  case AURORA_SYSCALL_FS_INFO: return kernel_fs_info(arg0,arg1);
   case AURORA_SYSCALL_ABI_VERSION:
     return 3;
   case AURORA_SYSCALL_CONSOLE_PUTCHAR:
-    aurora.io.PutChar(arg0 & 0xffu);
+    console_putchar(arg0 & 0xffu);
     return AURORA_OK;
   case AURORA_SYSCALL_KEYBOARD_SUBSCRIBE:
     if (arg2 != AURORA_IVT_KEYBOARD ||
@@ -755,11 +875,18 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
     user->callback_trampoline = arg0 == 0u ? 0u : arg1;
     /* Polling words belong to the pre-subscription input mode.  Never let
      * them leak into a later callback-driven input transaction. */
-    if (arg0 != 0u)
-      keyboard_read = keyboard_write;
+    if (arg0 != 0u) {
+      if(user_console) telnet_read=telnet_write;
+      else keyboard_read=keyboard_write;
+    }
     return AURORA_OK;
   case AURORA_SYSCALL_KEYBOARD_NEXT:
     if (user->callback) return AURORA_EBUSY;
+    if(user_console) {
+      if(telnet_read==telnet_write) return AURORA_EAGAIN;
+      arg0=telnet_queue[telnet_read]; telnet_read=(telnet_read+1u)%TELNET_QUEUE_SIZE;
+      return (aurora_status_t)arg0;
+    }
     if (keyboard_read == keyboard_write)
       return AURORA_EAGAIN;
     arg0 = keyboard_queue[keyboard_read];
@@ -819,25 +946,10 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
     kernel_midi_service();
     return (midi_count[0] != 0u) + 2u * (midi_count[1] != 0u);
   case AURORA_SYSCALL_TELNET_PUTCHAR:
-    aurora.Write(AURORA_TELNET_DEVICE, arg0 & 0xffu);
-    return AURORA_OK;
   case AURORA_SYSCALL_TELNET_NEXT:
-    if (user->telnet_callback) return AURORA_EBUSY;
-    if (telnet_read == telnet_write) return AURORA_EAGAIN;
-    arg0 = telnet_queue[telnet_read];
-    telnet_read = (telnet_read + 1u) % TELNET_QUEUE_SIZE;
-    return (aurora_status_t)(arg0 & 0xffu);
   case AURORA_SYSCALL_TELNET_SUBSCRIBE:
-    if (arg2 != AURORA_IVT_TELNET ||
-        (arg0 != 0u && (!is_user_code_address(arg0) || !is_user_code_address(arg1))))
-      return AURORA_EFAULT;
-    discard_events(0xa6u);
-    telnet_read = telnet_write;
-    user->telnet_callback = (aurora_telnet_callback_t)(unsigned long)arg0;
-    user->telnet_trampoline = arg0 == 0u ? 0u : arg1;
-    return AURORA_OK;
   case AURORA_SYSCALL_TELNET_WRITE:
-    return kernel_telnet_write(arg0, arg1);
+    return AURORA_EBUSY; /* Device reserved for remote system console. */
   case AURORA_SYSCALL_CALLBACK_RETURN:
     if (current_process != PROCESS_USER || !user->callback_active)
       return AURORA_EINVAL;
@@ -845,7 +957,8 @@ aurora_status_t kernel_syscall_dispatch(aurora_word_t request,
   case AURORA_SYSCALL_PROCESS_EXIT:
     if (current_process != PROCESS_USER)
       return AURORA_EINVAL;
-    halt_after_user_exit(arg0);
+    finish_user_exit(arg0);
+    return AURORA_OK;
   default:
     return AURORA_ENOSYS;
   }
@@ -867,6 +980,10 @@ finish_user_syscall(aurora_status_t result, aurora_word_t stack_top) {
       request == AURORA_SYSCALL_YIELD)
     return aurora_schedule_from_tick(stack_top);
   if (result != AURORA_OK || current_process != PROCESS_USER) return stack_top;
+  if (request == AURORA_SYSCALL_PROCESS_EXIT) {
+    current_process = PROCESS_SYSTEM;
+    return system->ksp;
+  }
   if (request == AURORA_SYSCALL_RESUME_EVENTS && !user->event_defer_depth) {
     /* The caller has finished its critical region; pending work may run now. */
     user->callback_budget = 1u;
@@ -923,6 +1040,8 @@ __attribute__((naked, noinline)) void aurora_syscall_entry(void) {
     "  call kernel_syscall_dispatch\n"
     "  osp r1\n"
     "  call finish_user_syscall\n"
+    ".globl aurora_restore_frame\n"
+    "aurora_restore_frame:\n"
     "  lsp r0\n"
     "  pop r15\n"
     "  pop r14\n"

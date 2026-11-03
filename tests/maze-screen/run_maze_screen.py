@@ -142,7 +142,7 @@ def run():
     assert cpu.output.count('Screen Maze:') == 1 and cpu.output.count('Steps: ') == 1
     assert f'Steps: {steps}  Time: ' in cpu.output
     assert cpu.ticks>0 and cpu.restores>10 and cpu.deadline is None
-    assert sum(c[:4]==(0,0,160,100) for c in cpu.commands)==1
+    assert sum(c[:4]==(0,0,160,100) for c in cpu.exit_commands)==1
     font_commands(cpu, BACKGROUND, {WALL})
     print(f'PASS maze BIN: walls/reachability, dirty moves, restart, {len(layouts)} distinct layouts, exit; {cpu.restores} restored callbacks')
     cpu=MazeCPU(); cpu.next_frame(); cpu.press('q'); cpu.until(lambda:cpu.halted)

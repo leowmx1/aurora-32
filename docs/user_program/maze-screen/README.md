@@ -9,7 +9,7 @@
 .\build-tools\build.ps1 -Program maze-screen
 ```
 
-ROM 加载 `kernel/build/kernel.hex`，UROM 加载本程序 `build/maze-screen.hex`。
+重新打包 `./build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 镜像，在系统终端输入 `maze`。
 产物均在源码自己的 build/ 中。使用图形调用 19/20，以 Busy/Yield 判断完成，
 不要求图形完成中断；键盘仍是硬中断和内核队列投递的用户回调。
 

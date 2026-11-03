@@ -180,7 +180,7 @@ class CPU:
                 self.r[0] = 0xa5000000 | self.sequence * 256 | ord(key)
                 self.pc = self.callback
         self.steps += 1
-        assert self.steps < 10000000, 'instruction budget exceeded'
+        assert self.steps < getattr(self, 'instruction_limit', 10000000), 'instruction budget exceeded'
         word = self.read(self.pc); self.pc += 1
         op = word & 255
         a, b, d = (word >> 16) & 15, (word >> 12) & 15, (word >> 8) & 15

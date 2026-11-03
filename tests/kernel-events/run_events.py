@@ -1,12 +1,12 @@
 """Actual kernel/user BIN event regression; ideal ISA, not Digital timing."""
 import subprocess
 from collections import deque
-from run_examples import DemoCPU, ROOT
+from run_examples import DemoCPU, ROOT, KERNEL_DIR
 
 
 def symbols():
     out = subprocess.check_output([str(ROOT / 'build-tools/bin/llvm-nm.exe'), '-n',
-                                   str(ROOT / 'kernel/build/kernel.o')], text=True)
+                                   str(KERNEL_DIR / 'kernel.o')], text=True)
     return {line.split()[2]: int(line.split()[0], 16)//4
             for line in out.splitlines() if len(line.split()) == 3}
 
@@ -56,10 +56,10 @@ def contract(period):
     cpu = CheckedCPU(ROOT / 'tests/kernel-events/build/event_contract.bin')
     cpu.tick_period = cpu.next_tick = period
     cpu.until(lambda: 'P0 ready\n' in cpu.output)
-    # A mixed burst while delivery is deferred: exactly 63 admitted, 7 lost.
-    cpu.inject.extend((i % 2 + 1, i + 1) for i in range(70))
+    # A keyboard burst while delivery is deferred: 63 admitted, 7 lost.
+    cpu.inject.extend((1, i + 1) for i in range(70))
     cpu.until(lambda: 'P1 ready\n' in cpu.output)
-    cpu.inject.extend((i % 2 + 1, i + 101) for i in range(10))
+    cpu.inject.extend((1, i + 101) for i in range(10))
     cpu.until(lambda: 'P2 sleeping\n' in cpu.output)
     # Drain sticky wake credit and enter an actual blocked WaitEvent.
     deadline = cpu.steps + 30000
@@ -73,9 +73,9 @@ def contract(period):
     cpu.inject.append((1, ord('Z')))
     cpu.until(lambda: cpu.halted, limit=50000)
     assert 'Event contract PASS' in cpu.output and 'exited with code 0.' in cpu.output, cpu.output
-    assert cpu.restores == 69 and not cpu.snapshots
+    assert cpu.restores == 64 and not cpu.snapshots
     assert cpu.system_yields > 100 and cpu.ticks > 0
-    print(f'PASS events tick={period}: FIFO, overflow, unsubscribe, nested defer, sleep/wake without tick, 69 full-context restores, {cpu.system_yields} system yields', flush=True)
+    print(f'PASS events tick={period}: FIFO, overflow, unsubscribe, nested defer, sleep/wake without tick, 64 full-context restores, {cpu.system_yields} system yields', flush=True)
 
 
 if __name__ == '__main__':

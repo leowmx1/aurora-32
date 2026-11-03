@@ -29,10 +29,11 @@ def run():
         cpu.until(lambda: cpu.halted)
         assert 'BITMAP CONTRACT PASS' in cpu.output, cpu.output
         assert 'exited with code 0.' in cpu.output, cpu.output
-        assert len(cpu.commands) == 13
-        assert [op[-1] for op in cpu.operations] == [0,0,0,1,2,2,1,1,1,1,0,2,1]
-        assert len(cpu.writes) == 4*8+9*11
-        assert cpu.screen == expected_screen(), 'pixel mismatch'
+        assert len(cpu.exit_commands) == 13
+        assert [op[-1] for op in cpu.exit_operations] == [0,0,0,1,2,2,1,1,1,1,0,2,1]
+        assert len(cpu.exit_writes) == 4*8+9*11
+        assert cpu.exit_screen == expected_screen(), 'pixel mismatch'
+        assert cpu.screen == [0x8000]*16000
         if inject:
             assert cpu.injected_keys == cpu.restores == 13
             assert cpu.busy_ticks > 0 and cpu.user_yields > 0 and not cpu.snapshots
@@ -40,7 +41,7 @@ def run():
     cpu = GraphicsCPU(binary, duration=80000, inject=True, stuck=True)
     cpu.until(lambda: cpu.halted)
     assert 'Bitmap timeout (10 s).' in cpu.output and 'exited with code 1.' in cpu.output
-    assert len(cpu.commands) == 1 and len(cpu.writes) == 8
+    assert len(cpu.exit_commands) == 1 and len(cpu.exit_writes) == 8
     print('PASS bitmap client timeout: no overwrite, tick/callbacks remain live')
 
 

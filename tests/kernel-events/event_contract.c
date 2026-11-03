@@ -24,7 +24,9 @@ __attribute__((noreturn)) void _start(void) {
   check(system.ResumeEvents() == AURORA_EINVAL, 2);
   system.DeferEvents(); system.DeferEvents();
   check(system.io.Subscribe(keyboard) == AURORA_OK, 3);
-  check(system.telnet.Subscribe(network) == AURORA_OK, 4);
+  check(system.telnet.Subscribe(network) == AURORA_EBUSY, 4);
+  check(system.telnet.PutChar('x') == AURORA_EBUSY, 7);
+  check(system.telnet.Write(values,1u) == AURORA_EBUSY, 8);
   check(system.io.GetChar() == AURORA_EBUSY, 5);
   check(system.telnet.GetChar() == AURORA_EBUSY, 6);
   system.io.PutString("P0 ready\n");
@@ -37,7 +39,7 @@ __attribute__((noreturn)) void _start(void) {
   while (count < 63u) system.WaitEvent();
   for (aurora_word_t i = 0; i < 63u; ++i) {
     check(values[i] == i + 1u, 23);
-    check(kinds[i] == i % 2u + 1u, 24);
+    check(kinds[i] == 1u, 24);
   }
   system.DeferEvents();
   system.io.PutString("P1 ready\n");
@@ -45,15 +47,11 @@ __attribute__((noreturn)) void _start(void) {
   system.io.Subscribe((aurora_keyboard_callback_t)0);
   system.io.Subscribe(keyboard);
   system.ResumeEvents();
-  while (count < 68u) system.WaitEvent();
-  for (aurora_word_t i = 0; i < 5u; ++i) {
-    check(values[63u + i] == 102u + i * 2u, 25);
-    check(kinds[63u + i] == 2u, 26);
-  }
+  check(count==63u,25); /* unsubscribe discards all pending keyboard events */
   check(system.EventDrops() == 7u, 27);
   system.io.PutString("P2 sleeping\n");
-  while (count < 69u) system.WaitEvent();
-  check(values[68] == 'Z' && kinds[68] == 1u, 28);
+  while (count < 64u) system.WaitEvent();
+  check(values[63] == 'Z' && kinds[63] == 1u, 28);
   system.io.PutString("Event contract PASS\n");
   system.Exit(0);
   for (;;) aurora.Nop();

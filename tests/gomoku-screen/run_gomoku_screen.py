@@ -62,6 +62,13 @@ class BoardCPU(GraphicsCPU):
         if final:
             self.until(lambda: self.halted)
             assert 'exited with code 0.' in self.output and self.deadline is None
+            assert self.screen==[0x8000]*16000
+            # Board assertions below inspect the completed pre-exit image;
+            # the normal shutdown itself must already have painted black.
+            self.screen=self.exit_screen
+            self.commands=self.exit_commands
+            self.operations=self.exit_operations
+            self.writes=self.exit_writes
         else:
             self.until(lambda: self.restores == restored + len(value))
             assert self.output == self.baseline, 'terminal output during play'

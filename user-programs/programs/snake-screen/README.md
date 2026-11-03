@@ -7,7 +7,7 @@
 .\build-tools\build.ps1 -Program snake-screen
 ```
 
-加载配套 `kernel/build/kernel.hex` 到 ROM，`build/snake-screen.hex` 到 UROM。
+重新打包 `build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 镜像；在系统终端输入 `snake`。
 不需要屏幕完成中断，只需要绘制完成后 busy 自动清零。
 文字使用预计算 6×10 双色位图，每字符一次系统调用，包含背景擦除；地图仍按矩形局部更新。
 需使用支持位图请求 28、Sleep 请求 29 的配套内核。

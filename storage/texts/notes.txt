@@ -1,0 +1,3 @@
+Aurora-32 notes
+Open this file in txt-viewer and try: append Hello, world!
+Then save. Use cat docs/notes.txt in the system console to check it.

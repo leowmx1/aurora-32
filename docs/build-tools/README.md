@@ -23,6 +23,7 @@
 | `build-user.ps1` | 任意单个用户 C 文件的一行编译入口，自动确定产物目录和系统调用地址 |
 | `compile.ps1` | 公共 C→汇编/对象→bin→HEX 构建流程及校验 |
 | `bin-to-logisim.ps1` | 每 4 个小端字节转换为一个 32 位十六进制字 |
+| `pack-storage.ps1` | 校验各 HEX/构建元数据，生成 ASFS/AEXE 存储镜像和布局报告 |
 | `toolchain-manifest.json` | 工具/头文件/脚本的 SHA-256、大小和来源版本信息 |
 | `LICENSE-LLVM.txt` | LLVM 项目许可证 |
 
@@ -47,11 +48,13 @@ Clang 的前端和后端已集成在同一个 `clang.exe`，无需另一个所�
 ```powershell
 .\build-tools\build.ps1
 .\build-tools\build.ps1 -Program guess-number
-.\build-tools\build.ps1 -Program calculator-trace
+.\build-tools\build.ps1 -Program tetris
 ```
 
-根构建总会先编译内核。`-Program all` 为默认，还接受 calculator、calculator-trace、
-gomoku-screen、guess-number、snake-screen、maze-screen、mini-terminal、graphics-demo。只构建内核或使用现有内核对象：
+根构建总会先编译内核。`-Program all` 为默认，还接受 calculator、gomoku-screen、guess-number、
+snake-screen、maze-screen、tetris、txt-viewer。calculator-trace、graphics-demo、mini-terminal 已移除。
+默认 all 在编译后自动执行 `pack-storage.ps1`；指定单个目标后需手动重新打包存储镜像。
+加载方式及自定义清单见 [存储说明](../kernel/storage.md)。只构建内核或使用现有内核对象：
 
 ```powershell
 .\kernel\build.ps1
@@ -155,7 +158,7 @@ Clang 可用 `-print-resource-dir` 查看默认头文件路径，`--version`/`-p
 的路径、清除开发工具 PATH 后再构建，并比较生成二进制。检查所有文档相对链接
 和脚本是否仍引用旧项目/LLVM 绝对路径。具体结果见 [验证记录](verification.md)。
 
-内核/八个现存用户示例是此包验证的构建目标。它不包含旧 customasm、不承诺支持
+内核/九个现存用户构建目标是此包验证的对象。它不包含旧 customasm、不承诺支持
 历史裸机汇编方言、任意 C 标准库、动态链接或所有 C 类型。当前可写 char 数组
 仍可能触发窄存储指令选择错误；使用字缓冲并检查汇编，不把它解释为缺失头文件。
 硬件稳定性和中断时序仍须在电路中测试。

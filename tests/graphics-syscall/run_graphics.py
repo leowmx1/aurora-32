@@ -64,6 +64,8 @@ class GraphicsCPU(CheckedCPU):
         if address in PARAMS or address == STATUS:
             assert self.kernel_mode and not self.ie
             self.complete()
+            if address == STATUS and value == 0:
+                self.deadline = None  # process exit/kill explicitly aborts a draw
             assert self.deadline is None, 'overwriting active fill'
             self.writes.append((address, value))
             if address != STATUS:
@@ -91,6 +93,14 @@ class GraphicsCPU(CheckedCPU):
 
     def step(self):
         self.complete()
+        if self.pc == self.entries['finish_user_exit']:
+            self.exit_screen=self.screen[:]
+            self.exit_commands=self.commands[:]
+            self.exit_operations=self.operations[:]
+            self.exit_writes=self.writes[:]
+            self.inject_keyboard=False
+            self.snapshots.clear()
+            self.callback_inflight=self.restoring=False
         if self.inject_keyboard and self.deadline is not None and not self.injected and self.ie:
             self.key = ord('k')
             self.interrupt(self.read(0x03000001))
@@ -113,12 +123,12 @@ class GraphicsCPU(CheckedCPU):
 
 
 def run():
-    demo = ROOT / 'user-programs/programs/graphics-demo/build/graphics-demo.bin'
+    demo = ROOT / 'tests/graphics-syscall/build/render_fixture.bin'
     for duration in (0, 80000):
         cpu = GraphicsCPU(demo, duration=duration)
         cpu.until(lambda: cpu.halted)
-        assert cpu.commands == RECTS + [(56,40,8,8,2), (104,40,8,8,2), (56,52,8,2,3)]
-        assert len(cpu.writes) == 54
+        assert cpu.exit_commands == RECTS + [(56,40,8,8,2), (104,40,8,8,2), (56,52,8,2,3)]
+        assert len(cpu.exit_writes) == 54
         assert 'Graphics complete:' in cpu.output and 'exited with code 0.' in cpu.output
         expected = [-1]*16000
         for x,y,w,h,c in RECTS + [(56,40,8,8,5), (56,52,8,2,3)]:
@@ -128,7 +138,8 @@ def run():
             for xx in range(width):
                 expected[(40+yy)*160+56+xx] = 2
                 expected[(40+yy)*160+104+xx] = 2
-        assert cpu.screen == expected
+        assert cpu.exit_screen == expected
+        assert cpu.screen == [0x8000]*16000
         assert cpu.restores == 0
         if duration: assert cpu.busy_ticks > 0 and cpu.user_yields > 0
         print(f'PASS demo: duration={duration}, preserved pixels, busy ticks={cpu.busy_ticks}')
@@ -137,23 +148,23 @@ def run():
     cpu.until(lambda: cpu.halted)
     assert 'GRAPHICS CONTRACT PASS' in cpu.output, cpu.output
     assert 'exited with code 0.' in cpu.output
-    assert cpu.commands == [(0, 0, 160, 100, 0)] + RECTS + [(159, 99, 1, 1, 4)]
-    assert len(cpu.writes) == 40 and cpu.injected_keys == 5 and cpu.busy_ticks > 0
+    assert cpu.exit_commands == [(0, 0, 160, 100, 0)] + RECTS + [(159, 99, 1, 1, 4)]
+    assert len(cpu.exit_writes) == 40 and cpu.injected_keys == 5 and cpu.busy_ticks > 0
     assert cpu.restores == 5 and not cpu.snapshots
-    assert cpu.screen.count(4) == 4001 and cpu.screen.count(2) == 375
-    assert cpu.screen.count(3) == 450 and cpu.screen.count(0) == 11174
+    assert cpu.exit_screen.count(4) == 4001 and cpu.exit_screen.count(2) == 375
+    assert cpu.exit_screen.count(3) == 450 and cpu.exit_screen.count(0) == 11174
     print(f'PASS contract: wrapper/raw validation, no busy writes, 5 keyboard callbacks, {cpu.busy_ticks} busy ticks')
 
     cpu = GraphicsCPU(ROOT / 'tests/graphics-syscall/build/contract.bin', inject=True, stuck=True)
     cpu.until(lambda: cpu.halted)
     assert 'Graphics timeout (10 s).' in cpu.output and 'exited with code 1.' in cpu.output
-    assert len(cpu.commands) == 1 and len(cpu.writes) == 8
+    assert len(cpu.exit_commands) == 1 and len(cpu.exit_writes) == 8
     print('PASS stuck status: user timeout without an in-kernel busy loop or command overwrite')
 
     cpu = GraphicsCPU(demo, stuck=True)
     cpu.until(lambda: cpu.halted)
     assert 'Graphics timeout (10 s).' in cpu.output and 'exited with code 1.' in cpu.output
-    assert len(cpu.commands) == 1 and cpu.ticks > 0 and cpu.user_yields > 0
+    assert len(cpu.exit_commands) == 1 and cpu.ticks > 0 and cpu.user_yields > 0
     print('PASS demo timeout: polling yields with normal tick, no completion IRQ or WaitEvent')
 
 

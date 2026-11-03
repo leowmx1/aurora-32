@@ -71,6 +71,11 @@ enum {
   /* r1=milliseconds (0..INT32_MAX), r2=r3=0. Event-interruptible.
    * 0 yields; positive values block until tick timeout or a subscribed event. */
   AURORA_SYSCALL_SLEEP = 29,
+  AURORA_SYSCALL_FS_LIST = 30, /* r1=directory ID, r2=ordinal, r3=info output */
+  AURORA_SYSCALL_FS_OPEN = 31, /* r1=word string path, result=ID (root=0) */
+  AURORA_SYSCALL_FS_READ = 32, /* r1=aurora_fs_read_request pointer */
+  AURORA_SYSCALL_FS_SAVE = 33, /* r1=ID, r2=word text, r3=length */
+  AURORA_SYSCALL_FS_INFO = 34, /* r1=ID, r2=info output */
 };
 
 #define AURORA_GRAPHICS_WIDTH 160u
@@ -93,6 +98,20 @@ enum {
   AURORA_ENOSYS = -3,
   AURORA_EFAULT = -4,
   AURORA_EBUSY = -5,
+  AURORA_ENOENT = -6,
+  AURORA_EIO = -7,
+  AURORA_ENOSPC = -8,
+  AURORA_EPERM = -9,
+  AURORA_EEXIST = -10,
 };
+
+enum { AURORA_FILE_EXECUTABLE=1, AURORA_FILE_TEXT=2, AURORA_FILE_DIRECTORY=3 };
+/* All kernel output buffers/descriptors must be static/global URAM, not USTACK. */
+typedef struct aurora_fs_info {
+  aurora_word_t id, type, words, capacity, parent, name[32];
+} aurora_fs_info;
+typedef struct aurora_fs_read_request {
+  aurora_word_t id, offset, buffer, count; /* count <=64, EOF returns 0 */
+} aurora_fs_read_request;
 
 #endif

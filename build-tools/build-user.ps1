@@ -49,7 +49,7 @@ if ($KernelObject) {
 
 $symbols = @(& $nm -n $kernel)
 if ($LASTEXITCODE -ne 0) { throw "Cannot read kernel symbols: $kernel" }
-$entries = @($symbols | Where-Object { $_ -match '\s[Tt]\s+aurora_syscall_entry$' })
+$entries = @($symbols | Where-Object { $_ -match '\s[Tt]\s+aurora_syscall_gateway$' })
 if ($entries.Count -ne 1) { throw 'Expected one defined aurora_syscall_entry in kernel object' }
 $entryBytes = [Convert]::ToUInt64(($entries[0].Trim() -split '\s+')[0], 16)
 if (($entryBytes % 4) -ne 0 -or $entryBytes -ge 67108864) {
@@ -71,4 +71,4 @@ if (Test-Path -LiteralPath $projectInclude -PathType Container) {
 & $compiler -SourceFile $source -HexFile $hex -Mode user -ExtraArguments $extra
 Write-Output ('System-call ROM word address: 0x{0:X8}' -f $entryWord)
 Write-Output "User image: $hex"
-Write-Output 'Load the matching kernel HEX into ROM and this user HEX into UROM.'
+Write-Output 'Add this HEX to a storage manifest and run build-tools/pack-storage.ps1.'

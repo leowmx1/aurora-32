@@ -3,10 +3,12 @@
 Run from repository root:
 
 ```powershell
-.\build-tools\build.ps1 -Program graphics-demo
-.\build-tools\build-user.ps1 .\tests\graphics-syscall\contract.c -KernelObject .\kernel\build\kernel.o
+.\kernel\build.ps1 -DirectBoot -OutputDirectory .\tests\storage\build\direct-kernel
+$env:AURORA_TEST_KERNEL_DIR=(Resolve-Path .\tests\storage\build\direct-kernel).Path
+.\build-tools\compile.ps1 tests/graphics-syscall/render_fixture.c tests/graphics-syscall/build/render_fixture.hex -Mode user -ExtraArguments '-DAURORA_SYSCALL_ENTRY_ADDRESS=2'
+.\build-tools\compile.ps1 tests/graphics-syscall/contract.c tests/graphics-syscall/build/contract.hex -Mode user -ExtraArguments '-DAURORA_SYSCALL_ENTRY_ADDRESS=2'
 python .\tests\graphics-syscall\run_graphics.py
-.\build-tools\build-user.ps1 .\tests\graphics-syscall\bitmap_contract.c -KernelObject .\kernel\build\kernel.o
+.\build-tools\compile.ps1 tests/graphics-syscall/bitmap_contract.c tests/graphics-syscall/build/bitmap_contract.hex -Mode user -ExtraArguments '-DAURORA_SYSCALL_ENTRY_ADDRESS=2'
 python .\tests\graphics-syscall\run_bitmap_syscall.py
 ```
 

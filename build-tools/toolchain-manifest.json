@@ -1,11 +1,21 @@
 {
-  "GeneratedAt": "2026-10-24",
+  "GeneratedAt": "2026-10-31",
   "Platform": "Windows x64",
   "ClangVersion": "clang version 24.0.0git\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: F:\\aurora-32\\build-tools\\bin",
   "ExecutableSource": "F:\\llvm-project\\llvm\\lib\\Target\\Aurora-32\\_build-tools\\bin",
   "HeaderSource": "F:\\llvm-project\\llvm\\lib\\Target\\Aurora-32\\_build-tools\\lib\\clang\\24\\include",
   "RuntimeSource": "E:\\VisualStudio\\VC\\Redist\\MSVC\\14.51.36231\\x64\\Microsoft.VC145.CRT",
   "Files": [
+    {
+      "Path": "include/aurora_fs.h",
+      "Bytes": 1691,
+      "SHA256": "B8CCC3E11D9959083C01FF515614555C73F4382F130BA36A5B6E35B8599C49B2"
+    },
+    {
+      "Path": "pack-storage.ps1",
+      "Bytes": 7290,
+      "SHA256": "A141400A62A3116FD2A7C3C7B5B1A5F6A6F571CA216E64C1DC20315CBBE19AD5"
+    },
     {
       "Path": "bin-to-logisim.ps1",
       "Bytes": 1365,
@@ -68,28 +78,28 @@
     },
     {
       "Path": "build-user.ps1",
-      "Bytes": 3163,
-      "SHA256": "AA634A19ECF071D163D0D791EC7FF03B01BFB568EB7AADFBCC5324CD9A164826"
+      "Bytes": 3171,
+      "SHA256": "F5B7545077F936B89E40C7A8ABC3EE9DBA93047B08C6F8957FA96380F0E7BDB0"
     },
     {
       "Path": "build.ps1",
-      "Bytes": 478,
-      "SHA256": "FD21BC6C1A555ED86EB8861FA5A63B32E42A59397F3E4A097E1C8710DA40B967"
+      "Bytes": 748,
+      "SHA256": "C3CFF95DA0A292C4D5879944EDBAEF439316B9D7631C0B4AE12A59D59ACC7709"
     },
     {
       "Path": "compile.ps1",
-      "Bytes": 3215,
-      "SHA256": "B4A70A64E135067E272FFA2818279E483624873779F49DE44501D568ECB68765"
+      "Bytes": 4167,
+      "SHA256": "F831F7A3736A560E842D2A862EAC5EDC04FC401E450E7CA3DD26290AEBC64174"
     },
     {
       "Path": "include/aurora_syscall.h",
-      "Bytes": 3821,
-      "SHA256": "EDA1EE65B89CD67907F4CB9DBB2C6B4F8D235CD77086B34AF6CE1CDBA4EDF1EC"
+      "Bytes": 4720,
+      "SHA256": "44CB79550242917B7AD289CC05D56B907A7E27B9F7E9D1F3A2D29E2DCA0E994C"
     },
     {
       "Path": "include/aurora_system.h",
-      "Bytes": 9860,
-      "SHA256": "665BE049C15174861A500FA79D4903BCD1D16550002EA36D18767134D5FEBFD3"
+      "Bytes": 10154,
+      "SHA256": "FE2342CFF076C38DD65A5DD9A74377FEA5AAEC23FC15291DF6AD36DE34B99A4E"
     },
     {
       "Path": "include/aurora_buffer.h",
@@ -98,8 +108,8 @@
     },
     {
       "Path": "include/aurora_user.h",
-      "Bytes": 5802,
-      "SHA256": "0A0A44C046E4ED06146EAB66FB8B7C72A3AC2383927D72A1E2E13AC3D22E6125"
+      "Bytes": 5874,
+      "SHA256": "D333C5A58BA505EF5C0D11B32B3F92C931BC07B0113BF41E4B04FA43D62926BE"
     },
     {
       "Path": "lib/clang/24/include/__clang_cuda_builtin_vars.h",

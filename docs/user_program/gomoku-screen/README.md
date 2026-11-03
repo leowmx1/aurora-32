@@ -12,8 +12,8 @@
 .\build-tools\build.ps1 -Program gomoku-screen
 ```
 
-ROM 加载 `kernel/build/kernel.hex`，UROM 加载
-`user-programs/programs/gomoku-screen/build/gomoku-screen.hex`。
+重新打包 `./build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 存储镜像，
+在系统终端输入 `gomoku`；UROM 由内核加载。
 源码目录只包含 C 文件、README 和 build/ 产物（s/o/bin/hex）。
 复用现有图形系统调用 19/20/28、键盘订阅和内核事件队列，不新增系统调用、设备或微码。
 内核不变时，也可直接运行 `./user-programs/build.ps1 -Program gomoku-screen`。
@@ -45,7 +45,7 @@ CR/LF 被忽略，不会重复落子。Backspace、Delete 或 Esc 清除待输�
 
 启动时在终端打印一次操作帮助，说明 A3/3A、首字符行列高亮、取消输入和 Q/q 退出。
 屏幕不显示 Q QUIT 提示。正常对局中不打印终端；胜负/平局/主动退出时输出结果。
-结束时调用 Exit(0)，内核按当前双进程设计打印退出日志并停机，复位可重新开始。
+结束时调用 Exit(0)，内核打印退出日志并返回系统终端，再输入 `gomoku` 即可重新开始。
 设备错误、等待超时或事件队列溢出打印诊断并 Exit(1)。
 
 ## 图形和事件处理

@@ -1,0 +1,15 @@
+{
+  "Version": 2,
+  "DataOffsetWords": 4096,
+  "Files": [
+    { "Name": "calculator", "Hex": "../user-programs/programs/calculator/build/calculator.hex" },
+    { "Name": "guess-number", "Hex": "../user-programs/programs/guess-number/build/guess-number.hex" },
+    { "Name": "snake", "Hex": "../user-programs/programs/snake-screen/build/snake-screen.hex" },
+    { "Name": "maze", "Hex": "../user-programs/programs/maze-screen/build/maze-screen.hex" },
+    { "Name": "gomoku", "Hex": "../user-programs/programs/gomoku-screen/build/gomoku-screen.hex" },
+    { "Name": "tetris", "Hex": "../user-programs/programs/tetris/build/tetris.hex" },
+    { "Name": "txt-viewer", "Hex": "../user-programs/programs/txt-viewer/build/editor.hex" },
+    { "Name": "docs/welcome.txt", "Type": "Text", "Source": "texts/welcome.txt", "ReserveWords": 2048 },
+    { "Name": "docs/notes.txt", "Type": "Text", "Source": "texts/notes.txt", "ReserveWords": 2048 }
+  ]
+}

@@ -10,8 +10,8 @@
 .\build-tools\build.ps1 -Program snake-screen
 ```
 
-ROM 加载配套 `kernel/build/kernel.hex`，UROM 加载
-`user-programs/programs/snake-screen/build/snake-screen.hex`。其他产物 `.s/.o/.bin`
+重新运行 `./build-tools/pack-storage.ps1` 后，将内核加载到 ROM、存储镜像加载到 EEPROM B，
+在系统终端输入 `snake`。其他产物 `.s/.o/.bin`
 也在本程序的 build/ 中。运行依赖图形系统调用 19、20、MIDI 系统调用 22..27 和正常 tick、键盘回调。
 本版增加内核音序器，必须同时重新加载配套内核和用户 HEX，不能沿用旧内核。
 不注册图形 IRQ，不要求硬件屏幕完成中断；设备完成后须将 0x09000009 的 busy 清零。

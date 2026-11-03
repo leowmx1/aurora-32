@@ -1,0 +1,8 @@
+Welcome to Aurora-32!
+
+ASFS2 stores executables, directories and editable text.
+Use ls, tree, cat docs/welcome.txt or run txt-viewer.
+quickrun skips checksums and copy readback: use trusted images only.
+
+Text edits live in the simulated EEPROM, not this host source file.
+Export the EEPROM image in Digital before reloading or closing it.
