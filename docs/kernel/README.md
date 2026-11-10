@@ -1,9 +1,10 @@
 # Aurora-32 内核
 
-源码：[kernel/kernel.c](../../kernel/kernel.c)。这是当前固定双进程系统的内核，
+源码：[kernel/kernel.c](../../kernel/kernel.c)。这是 SYSTEM + 四个用户槽的内核，
 提供启动、tick 抢占切换、终端输入回调、双端系统终端、用户异常日志和进程退出。
 现在包含 EEPROM ASFS2 目录/文本文件系统、程序加载器和常驻系统终端；仍没有通用进程创建、
-虚拟内存或多个并发用户进程。详见 [存储格式和启动流程](storage.md)。
+分页虚拟内存或 malloc。支持银行隔离的四用户并发；详见 [多进程与银行](user-banks.md)
+和 [存储格式和启动流程](storage.md)。
 
 ## 构建和启动
 
@@ -36,11 +37,12 @@ KSP/KFP 为 `0x02000000`，再分配局部栈空间和执行初始化。启动�
 | 终端数据 | `0x05000000` | 写字符 |
 | tick 设备 | `0x07000000` | ISR 先读以应答，值不使用 |
 | timer 设备 | `0x08000000` | 读系统运行毫秒数，不负责调度 |
-| 图形参数 | `0x09000000`..`0x09000008` | 低 4 位译码 x/y/w/h/color/bgcolor/dataLow/dataHigh/mode |
-| 图形状态 | `0x09000009` | 读 busy；写 1 启动，完成自动清零；写 0 停止 |
+| 图形参数 | `0x09000000`..`0x09800000` | [23:20] 译码 x/y/w/h/color/bgcolor/data RAM/保留/mode |
+| 图形状态 | `0x09900000` | 读 busy；写 1 启动，完成自动清零；写 0 停止 |
 | MIDI | `0x0A000000`..`0x0A00007F` | 地址低 7 位音符/乐器；数据力度、OnOff、PC |
 | EEPROM 存储 | `0x0B000000`..`0x0BFFFFFF` | 64 MiB，内核按字读写 ASFS2；用户通过系统调用访问 |
 | LDMA | `0x0C000000`..`0x0C000004` | 内核专用代码搬运：origin/target/len/stat/sum；写 SUM 清零，读 UROM 写入后的读回累加和 |
+| Bank | `0x0D000000` | 内核读写，低 2 位；调度时选择用户银行 0..3 |
 | 键盘向量 | `0x03000001` | `aurora_keyboard_irq` |
 | Telnet 向量 | `0x03000002` | `aurora_telnet_irq` |
 | 用户内存异常 | `0x03000004` | `aurora_user_memory_fault` |
@@ -50,7 +52,7 @@ KSP/KFP 为 `0x02000000`，再分配局部栈空间和执行初始化。启动�
 INT 不读取上述向量表。软件调用写 `INT 0x00000002`，跳板 `aurora_syscall_gateway`
 再 JMP 到内部 `aurora_syscall_entry`。构建时检查固定入口，不使用旧动态地址或 IVT 地址。
 
-## 中断现场和双进程切换
+## 中断现场和多进程切换
 
 硬件进入中断时先锁存被打断状态与 FLAGS，再切内核态，并在 KSP 上依次保存
 **FLAGS、PC**。ISR 按 r0 到 r15 的顺序 PUSH；栈向高地址增长，KSP 指向下一空位。
@@ -66,8 +68,8 @@ INT 不读取上述向量表。软件调用写 `INT 0x00000002`，跳板 `aurora
 返回先 POP r15…r0，再 IRET 恢复 PC，最后恢复 FLAGS/P。P 必须在读取 PC 后才切换，
 否则可能从 USP 取到错误 PC。INT 自带 CLR_IE，用户不执行 DI。
 
-`aurora_schedule_from_tick(stack_top)` 当前只交换 PCB 的 `ksp`：系统被打断时
-保存系统 KSP，若用户可运行才选择用户 KSP；用户被打断时反过来。
+`aurora_schedule_from_tick(stack_top, tick)` 保存当前 KSP。离开用户时用 OUSP/OUFP
+保存 USP/UFP；SYSTEM 选择下一可运行用户时先设置 bank，再用 LUSP/LUFP 恢复其用户指针。
 同一选择逻辑也用于系统空闲 Yield。用户在 WaitEvent/Sleep 阻塞时被跳过，Sleep 到期由 tick 恢复；内核空闲循环保持中断开启等待事件。现场留在各自内核栈，普通 tick
 不会每次把全部寄存器再复制到 PCB 的 r[]。汇编入口取返回的 KSP，随后 POP/IRET
 自然恢复目标进程。PCB 的 r[]/pc/flags 也用于用户首次启动和回调原现场快照。
@@ -75,12 +77,14 @@ INT 不读取上述向量表。软件调用写 `INT 0x00000002`，跳板 `aurora
 | 栈基址 | 用途 |
 |---|---|
 | `0x02000000` | 系统/内核启动栈 |
-| `0x02010000` | 用户进程普通陷入内核的现场 |
-| `0x02020000`、`0x02030000` | 用户回调的专用内核栈 bank |
+| `0x02010000+(slot-1)*0x30000` | 用户槽 1..4 普通内核栈 |
+| 普通内核栈起点加 `0x10000`、`0x20000` | 各槽回调的专用内核栈 |
 | `0x82000000` | 用户入口初始化的 USP/UFP |
 
-这些是固定区域约定，不是具有边界保护的动态分配器。当前只有一个用户进程，
-没有切换多个 USP/UFP 的完整通用方案。KSP/UStack 的区分必须由硬件保持。
+这些是固定区域约定，不是具有边界保护的动态分配器。
+用户逻辑范围已缩至每区 `2^22` 字，用户程序、系统调用范围校验和装载器使用同一上限。
+后端已支持内核专用 LUSP/LUFP/OUSP/OUFP，以及 aurora.h 的四个用户指针读写接口，
+调度器已使用这些接口切换用户上下文。KSP/UStack 的区分必须由硬件保持。
 
 ## 用户键盘回调
 
@@ -94,14 +98,14 @@ PCB 保存 `subscribed_vector`、`callback`、`callback_trampoline`、`callback_
 2. 没有订阅时，把字符放入内核兼容读取队列；有订阅时走回调路径，不重复入队。
 3. 有订阅时无论回调是否活跃都先进入共享事件 FIFO，满时丢新事件并计数。
 4. 增加非零 16 位序号，构造 `0xA5SSSSCC` 事件字。
-5. 若允许投递，从 FIFO 队首选择事件（键盘和 Telnet 按 IRQ 被内核接收的顺序）；选取用户的被打断现场（若系统正在运行，则取用户保存的 KSP）。
+5. 若目标前台正在运行且允许投递，选择其被打断现场；否则只入队，等调度恢复其银行和 USP/UFP 后投递。
 6. 把原 FLAGS/PC/r0-r15 快照到 PCB，复制现场到回调栈，替换 PC 为回调地址、r0 为事件。
-7. 成功准备现场才移动 FIFO 读指针；通过内核专用 PUSHU 向用户栈放入返回跳板；IRET 后在用户态执行普通 C 回调。
+7. 成功准备现场才移动 FIFO 读指针；向 `USP + bank_base` 写返回跳板，再用 LUSP 增加逻辑 USP；IRET 后在用户态执行普通 C 回调。当前 PUSHU 不切权限，不能隐式完成银行翻译。
 8. C 回调 RET 到用户跳板；跳板请求私有系统调用 7，内核从 PCB 重建原现场，再 IRET。
 
 用户回调允许被 tick 抢占、调用系统 IO 和 Yield；不允许 WaitEvent/Sleep，避免等待无法嵌套执行的回调。
 标准示例直接在回调中处理业务。专用 bank 不代表允许递归回调，`callback_active` 保证跨设备不嵌套。
-`aurora_keyboard_subscribe_entry` 是低层特殊入口，跳板地址为 0，不会 PUSHU 普通
+`aurora_keyboard_subscribe_entry` 是低层特殊入口，跳板地址为 0，不会压入普通
 返回地址；它必须自己通过回调返回接口结束，不能当作普通回调 `return`。
 
 ## 系统调用 ABI
@@ -138,6 +142,8 @@ PCB 保存 `subscribed_vector`、`callback`、`callback_trampoline`、`callback_
 | 27 | MIDI_SEQUENCE_BUSY | 未使用 | bit0 背景，bit1 音效 |
 | 28 | GRAPHICS_BITMAP | 八字描述符地址 / mode=1或2 / 0 | 0 已提交，-1 非法，-4 地址错误，-5 忙 |
 | 29 | SLEEP | ms (0..INT32_MAX) / 0 / 0 | 0 到期或事件唤醒；0ms 让出；参数 -1，回调/暂缓区 -5 |
+| 30..35 | FS_LIST/OPEN/READ/SAVE/INFO/INSTALL | 见文件系统文档 | 文件系统状态或结果；SYSTEM 占用工作区时 -5 |
+| 36 | BACKGROUND | 0 / 0 / 0 | 0 原槽位转后台并释放前台输入；配额满/回调/暂缓区 -5，非法参数 -1 |
 
 错误码：`AURORA_EINVAL=-1`、`AURORA_EAGAIN=-2`、`AURORA_ENOSYS=-3`、
 `AURORA_EFAULT=-4`、`AURORA_EBUSY=-5`。未知请求返回 ENOSYS。回调返回在当前非用户进程或没有活跃
@@ -152,6 +158,11 @@ Write 的内核实现见 `kernel/console_write.h`。它先检查长度和完整�
 验证失败不会输出前缀。缓冲区不要求零终止，一个硬件字一个字符。
 分批长度用于限制每次关闭中断的输出时间；批次间 IRET 后允许正常 IRQ。
 用户辅助接口为 `system.io.Write`，`system.io.buffer` 负责缓冲分批。
+
+后台用户的 PutChar/PutInt/PutString/Write 请求仍验证参数，但静默丢弃输出；
+有效请求返回原成功值（前三者为 0，Write 为 count），不操作本地或远程终端。
+因此 buffer.Flush 不会误判输出失败。没有缓存重放或隐藏日志。
+此规则只在用户终端输出系统调用中生效，SYSTEM 的退出/故障通知仍正常显示。
 
 TimeMs 读取内核 timer 设备 `0x08000000`，与读应答的 tick `0x07000000` 不同。
 返回值高位为 1 也属于合法时间，不应按负错误码处理；用户库显式转换为 `aurora_word_t`。

@@ -8,11 +8,11 @@ def shell(cpu, command, expected):
     assert expected in cpu.output[start:], cpu.output[start:]
 
 
-def editor(cpu, command, expected='txt'):
+def editor(cpu, command, expected='editor'):
     start = len(cpu.output)
     cpu.pending.extend(command + '\r')
     cpu.until(lambda: expected in cpu.output[start:] and
-              (cpu.output.endswith('txt > ') or cpu.output.endswith('txt* > ')), limit=4000000)
+              (cpu.output.endswith('editor > ') or cpu.output.endswith('editor* > ')), limit=4000000)
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
     shell(cpu,'touch work/nested/edited.txt','File operation failed: -10')
     shell(cpu,'rm /','File operation failed: -9')
     shell(cpu,'mount','Storage mounted.')
-    cpu.run_program('txt-viewer','txt > ')
+    cpu.run_program('editor','editor > ')
     editor(cpu,'ls work/nested','edited.txt')
     editor(cpu,'open work/nested/edited.txt')
     editor(cpu,'append first')
@@ -45,7 +45,7 @@ def main():
     shell(cpu,'verify work/nested/edited.txt','File verified.')
     shell(cpu,'mount','Storage mounted.')
     shell(cpu,'cat work/nested/edited.txt','updated\n')
-    cpu.run_program('txt-viewer','txt > ')
+    cpu.run_program('editor','editor > ')
     editor(cpu,'open work/nested/edited.txt','updated\n')
     editor(cpu,'clear')
     editor(cpu,'save','Saved.')

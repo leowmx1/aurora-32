@@ -1,5 +1,5 @@
 {
-  "GeneratedAt": "2026-10-31",
+  "GeneratedAt": "2026-11-08",
   "Platform": "Windows x64",
   "ClangVersion": "clang version 24.0.0git\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: F:\\aurora-32\\build-tools\\bin",
   "ExecutableSource": "F:\\llvm-project\\llvm\\lib\\Target\\Aurora-32\\_build-tools\\bin",
@@ -8,13 +8,13 @@
   "Files": [
     {
       "Path": "include/aurora_fs.h",
-      "Bytes": 1691,
-      "SHA256": "B8CCC3E11D9959083C01FF515614555C73F4382F130BA36A5B6E35B8599C49B2"
+      "Bytes": 2083,
+      "SHA256": "77045E353E80507A6D5C3C0DED06E6CE566D1CB3D16CB911B55AFAFCBB5B8903"
     },
     {
       "Path": "pack-storage.ps1",
-      "Bytes": 7290,
-      "SHA256": "A141400A62A3116FD2A7C3C7B5B1A5F6A6F571CA216E64C1DC20315CBBE19AD5"
+      "Bytes": 7334,
+      "SHA256": "89128015126162EE6801B473CCF29F6E5CB7A93C6AF6405CE7FE30FA71D3B7B9"
     },
     {
       "Path": "bin-to-logisim.ps1",
@@ -23,38 +23,38 @@
     },
     {
       "Path": "bin/clang.exe",
-      "Bytes": 82510336,
-      "SHA256": "87919F18EFB8E45C99205B78E35C7EC6DF7E34A5FF80EE6F06EF89E26984DD61"
+      "Bytes": 82510848,
+      "SHA256": "81BDEA9A6C358849F76EA36FB954768AABC20AF34C6A7BE20D2443A826C56B89"
     },
     {
       "Path": "bin/llc.exe",
       "Bytes": 40826368,
-      "SHA256": "3D1796FC97617170C60E817084CD65E8CCB75E9C6171398B16279580C07A7335"
+      "SHA256": "5724EB25636828A7A184CE944E93B584130BC409E102403CC2FA20A1AED61DE6"
     },
     {
       "Path": "bin/llvm-mc.exe",
-      "Bytes": 6859264,
-      "SHA256": "341556DE3AF2E710A258C864443A5FC75A657B31512FAB863C139670472AE13C"
+      "Bytes": 6859776,
+      "SHA256": "5EF65287234D8DAD77A2452CB264B1F0F14BE8AF7258C2FEC21E91EE200A3577"
     },
     {
       "Path": "bin/llvm-nm.exe",
-      "Bytes": 9262592,
-      "SHA256": "67D3578367DC8DE54610B8C624970C896D7229F94EC339423E83C12ED6C25D71"
+      "Bytes": 9263104,
+      "SHA256": "16896E929E6465D40758D0A6E1F7521AF4015BB414A18224DA6582EC3F569FB3"
     },
     {
       "Path": "bin/llvm-objcopy.exe",
       "Bytes": 4648448,
-      "SHA256": "094D33794904C2E596D82091E61014129D1EA918F0B55093867C112BBB1951BB"
+      "SHA256": "EDA99265D5E63FEAB668872EA501862D0408B039D761CA70DC900A8BEB49E1D0"
     },
     {
       "Path": "bin/llvm-objdump.exe",
       "Bytes": 10920448,
-      "SHA256": "8859E677BAC3B05A98196729820D211E6B62D6E555098F44AFAB974E4B724EA3"
+      "SHA256": "55641C6D4BEE76FF084DD7EED3749070EB5730722C4BBCD2E749E55777F0E6A1"
     },
     {
       "Path": "bin/llvm-readobj.exe",
       "Bytes": 7153664,
-      "SHA256": "7491D8CA978D1E19D25967A1DF4C87620C260D2A0058838204981915118F9AD3"
+      "SHA256": "FBCC1BBCDBA0FD808CF4BDD318BF7CBDF5F0A5601F9F3117E1792AD341DC280F"
     },
     {
       "Path": "bin/msvcp140.dll",
@@ -63,8 +63,8 @@
     },
     {
       "Path": "bin/opt.exe",
-      "Bytes": 40662016,
-      "SHA256": "9A16F6C82073D80E51B2598230ED67D2AD5915CA8B729CACEF3502C3C7E885ED"
+      "Bytes": 40662528,
+      "SHA256": "2C0D46A6D657340FF270F8ABB975D9169CDD0497058B3975FF4B1C9AFDF49FD3"
     },
     {
       "Path": "bin/vcruntime140_1.dll",
@@ -83,23 +83,23 @@
     },
     {
       "Path": "build.ps1",
-      "Bytes": 748,
-      "SHA256": "C3CFF95DA0A292C4D5879944EDBAEF439316B9D7631C0B4AE12A59D59ACC7709"
+      "Bytes": 772,
+      "SHA256": "857AAA7073D4817D2EC7B1940E9307647441123776C0E621903D828BD8C46F40"
     },
     {
       "Path": "compile.ps1",
-      "Bytes": 4167,
-      "SHA256": "F831F7A3736A560E842D2A862EAC5EDC04FC401E450E7CA3DD26290AEBC64174"
+      "Bytes": 4317,
+      "SHA256": "FC229412314B0C572D38174728B4B81581AEE55A89569759ED5B633A15CE66D1"
     },
     {
       "Path": "include/aurora_syscall.h",
-      "Bytes": 4720,
-      "SHA256": "44CB79550242917B7AD289CC05D56B907A7E27B9F7E9D1F3A2D29E2DCA0E994C"
+      "Bytes": 5757,
+      "SHA256": "61DC9683B237174045046CDF4D5F29123D15491F21285F0F18BD19F629D4B8D5"
     },
     {
       "Path": "include/aurora_system.h",
-      "Bytes": 10154,
-      "SHA256": "FE2342CFF076C38DD65A5DD9A74377FEA5AAEC23FC15291DF6AD36DE34B99A4E"
+      "Bytes": 11317,
+      "SHA256": "77ED7FDC7DBEE083DDC2D49852229BD5FE48B1DE107E4A32FE83B0690A57502F"
     },
     {
       "Path": "include/aurora_buffer.h",
@@ -433,8 +433,8 @@
     },
     {
       "Path": "lib/clang/24/include/aurora.h",
-      "Bytes": 7432,
-      "SHA256": "2E46E814CE33A2292E3524CCE83469EDB10E7281A50C466A18F4D1BB2F3F6ABC"
+      "Bytes": 8455,
+      "SHA256": "192ADC5A411717748231B83DA11CFCD10E9BC765E4B4A434659286FE253C115E"
     },
     {
       "Path": "lib/clang/24/include/aurora.hpp",
@@ -1622,5 +1622,5 @@
       "SHA256": "8636577FEBE5FA75704691F1CBE82692AEA0376577D759E4815C85F058A7B622"
     }
   ],
-  "AuroraBackendPatch": "2026-10-17: normalize disjoint OR word offsets before absolute global replacement; clang/llc/opt relinked."
+  "AuroraBackendPatch": "2026-11-07: privileged LUSP/LUFP/OUSP/OUFP (0x62..0x65), aurora.h accessors, 22-bit per-bank user global allocation; complete bundled Aurora toolchain rebuilt. Includes earlier noinit/API-inlining/disjoint-word-offset fixes."
 }

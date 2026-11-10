@@ -1,28 +1,29 @@
 """Production BIN framebuffer assertions; not a Digital electrical simulation."""
 from run_storage import StorageCPU
-from font_reference import CHARS, ROWS
+from font_reference import glyph_bits
 
 BLUE, WHITE, BLACK = 0x8015, 0xffff, 0x8000
 
 
 def expected_blue(vector, user=True):
-    pixels=[BLUE]*16000
+    pixels=[BLUE]*115200
     for x,y,w,h in [(12,13,4,4),(12,26,4,4),(30,8,5,4),(26,12,4,5),
                     (23,17,4,9),(26,26,4,5),(30,31,5,4)]:
+        x,y,w,h=48+x*2,y*2,w*2,h*2
         for dy in range(h):
-            for dx in range(w): pixels[(y+dy)*160+x+dx]=WHITE
-    lines=[(43,'USER PROCESS FAULT' if user else 'KERNEL FAULT'),
-           (57,'MEMORY VIOLATION' if vector==0x03000004 else 'ILLEGAL INSTRUCTION'),
-           (71,'STOP 03000004' if vector==0x03000004 else 'STOP 03000005'),
-           (85,'HALTED  PRESS RESET')]
+            for dx in range(w): pixels[(y+dy)*480+x+dx]=WHITE
+    lines=[(100,'USER PROCESS FAULT' if user else 'KERNEL FAULT'),
+           (130,'MEMORY VIOLATION' if vector==0x03000004 else 'ILLEGAL INSTRUCTION'),
+           (160,'STOP 03000004' if vector==0x03000004 else 'STOP 03000005'),
+           (200,'HALTED  PRESS RESET')]
     for y,text in lines:
-        assert 10+(len(text)-1)*7+6<=160
+        assert 48+(len(text)-1)*16+12<=480
         for i,c in enumerate(text):
             if c==' ': continue
-            for dy in range(10):
-                for dx in range(6):
-                    bit=ROWS[CHARS.index(c)*5+dy//2] & (4>>(dx//2))
-                    pixels[(y+dy)*160+10+i*7+dx]=WHITE if bit else BLUE
+            for dy in range(16):
+                for dx in range(12):
+                    bit=glyph_bits(c) & (1<<(dy*12+dx))
+                    pixels[(y+dy)*480+48+i*16+dx]=WHITE if bit else BLUE
     return pixels
 
 
@@ -51,6 +52,6 @@ if __name__=='__main__':
         cpu.stuck=stuck
         cpu.pending.extend('halt\r'); cpu.until(lambda:cpu.halted,limit=4000000)
         assert not cpu.ie and cpu.deadline is None
-        if not stuck: assert cpu.screen==[BLACK]*16000
+        if not stuck: assert cpu.screen==[BLACK]*115200
         else: assert 'Graphics unavailable during shutdown.' in cpu.output
         print('PASS normal shutdown:', 'stalled GPU fallback' if stuck else 'black fill completed',flush=True)

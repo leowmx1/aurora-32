@@ -30,7 +30,7 @@ static int shell_equal(const aurora_word_t *a, const char *b) {
 }
 static void shell_prompt(void) { kernel_boot_put_string(shell_console?"aurora:remote:/ > ":"aurora:/ > "); }
 static void shell_banner(void) {
-  if(!process_table[PROCESS_USER].valid && (!shell_console || user_console)) console_screen_logo();
+  if(!graphics_owner && graphics_logo_needed) console_screen_logo();
   kernel_boot_put_string(shell_console?"Aurora-32 Remote System Console\n":"Aurora-32 System Console\n");
   kernel_boot_put_string("----------------------------------------\n");
   if (boot_report_pending && !shell_console) {
@@ -67,7 +67,7 @@ static void shell_help(const aurora_word_t *topic) {
       "  rm PATH          Remove file / empty dir\n"
       "  rename PATH NAME Rename in same directory\n"
       "  mv PATH DEST     Move without copying data\n"
-      "  run NAME         Load and execute\n"
+      "  run NAME [&]     Foreground / background\n"
       "  quickrun NAME    Skip checksum comparison\n"
       "  stat NAME        File and image details\n"
       "  verify NAME|all  Check without loading\n"
@@ -83,7 +83,7 @@ static void shell_help(const aurora_word_t *topic) {
       "CONSOLE AND NETWORK\n"
       "  echo TEXT        Print text\n"
       "  netstat          Remote console traffic\n"
-      "  kill [1|user]    Terminate user program\n"
+      "  kill SLOT        Terminate slot 1..4\n"
       "  history          Last 10; newest is 1\n"
       "  !! / !N          Repeat last/history item\n"
       "  clear            Clear and show banner\n"
@@ -93,7 +93,11 @@ static void shell_help(const aurora_word_t *topic) {
     kernel_boot_put_string("run NAME, or NAME alone (case-sensitive).\n"
       "LDMA copies and verifies UROM before execution.\n"
       "quickrun NAME skips checksum comparison.\n"
-      "Only one user program runs at a time.\n"
+      "NAME & or run NAME &: start in background.\n"
+      "Each terminal: one foreground + one background.\n"
+      "Four isolated banks; one graphics owner.\n"
+      "Background has no keyboard input; output shares\n"
+      "its terminal. Exits always notify immediately.\n"
       "Exit returns here; protection faults halt.\n");
   } else if (shell_equal(topic, "edit")) {
     kernel_boot_put_string("Enter: submit (CR/LF/CRLF).\n"
@@ -110,7 +114,7 @@ static void shell_help(const aurora_word_t *topic) {
       "verify all checks files without loading.\n"
       "mkdir/touch/rm/rename/mv manage entries.\n"
       "mv/rm do not copy file data.\n"
-      "txt-viewer edits text; no journal or cd.\n"
+      "editor edits text; no journal or cd.\n"
       "Export EEPROM in Digital to keep edits.\n");
   } else kernel_boot_put_string("Unknown help topic. Try help.\n");
 }
@@ -159,21 +163,25 @@ static void shell_verify_all(void) {
       aurora_word_t c = storage_read(at + 4u + j); if (!c) break; console_putchar(c);
     }
     console_putchar('\n');
-    if (file.type==1u?loader_load(&file,0u)!=0u:fs_checksum(&file)) { ++passed; kernel_boot_put_string("OK\n"); }
+    if (file.type==1u?loader_load(&file,0u,0u)!=0u:fs_checksum(&file)) { ++passed; kernel_boot_put_string("OK\n"); }
     else kernel_boot_put_string("INVALID\n");
   }
   kernel_console_put_uint(passed); console_putchar('/'); kernel_console_put_uint(checked);
   kernel_boot_put_string(" files verified.\n");
 }
-static void shell_run_file(const aurora_word_t *name, const kernel_file *file,aurora_word_t quick) {
-  if(process_table[PROCESS_USER].valid) {
-    kernel_boot_put_string("User slot busy. Use ps or kill; cannot run a second program.\n"); return;
+__attribute__((noinline,optnone)) static void
+shell_run_file(const aurora_word_t *name, const kernel_file *file,aurora_word_t quick,aurora_word_t bg) {
+  if(bg?background[shell_console]:foreground[shell_console]) {
+    kernel_boot_put_string("Terminal slot busy. Use ps or kill SLOT.\n"); return;
   }
-  if(file->type!=1u) { kernel_boot_put_string("Not an executable. Use cat or txt-viewer.\n"); return; }
+  aurora_word_t pid=1u;
+  while(pid<PROCESS_COUNT && process_table[pid].valid) ++pid;
+  if(pid==PROCESS_COUNT) { kernel_boot_put_string("All four user slots are busy.\n"); return; }
+  if(file->type!=1u) { kernel_boot_put_string("Not an executable. Use cat or editor.\n"); return; }
   if(quick) kernel_boot_put_string("Quickrun: checksum comparison skipped.\n");
   kernel_boot_put_string("Loading "); shell_put_words(name); console_putchar('\n');
   aurora_word_t start = aurora.Read(AURORA_TIMER_DEVICE);
-  aurora_word_t entry = loader_load(file, quick?2u:1u);
+  aurora_word_t entry = loader_load(file, quick?2u:1u,pid);
   if (!entry) {
     kernel_boot_put_string("Load failed: format/ABI/checksum/range or UROM write verification.\n"); return;
   }
@@ -181,9 +189,31 @@ static void shell_run_file(const aurora_word_t *name, const kernel_file *file,au
   kernel_boot_put_string(" ms. Starting program.\n");
   /* Publish only with IE clear, return all shell frames before scheduling. */
   aurora.DisableInterrupt();
-  user_console=shell_console;
-  input_swallow_lf[user_console]=shell_skip_lf;
-  initialize_user_process(entry); shell_needs_prompt = 0u;
+  if(!bg) input_swallow_lf[shell_console]=shell_skip_lf;
+  initialize_user_process(pid,entry,shell_console,bg,name);
+  /* Pin the source file, as well as files opened by later syscalls. */
+  process_table[pid].file_refs[file->id]=1u;
+  kernel_boot_put_string("Started slot="); kernel_console_put_uint(pid);
+  kernel_boot_put_string(" bank="); kernel_console_put_uint(pid-1u);
+  kernel_boot_put_string(bg?" background\n":" foreground\n");
+  shell_needs_prompt = bg?1u:0u;
+}
+__attribute__((noinline,optnone)) static void shell_process_list(void) {
+  kernel_boot_put_string("SLOT BANK TERMINAL ROLE STATE NAME / EXIT\n0    -    system   kernel RUNNING\n");
+  for(aurora_word_t pid=1u;pid<PROCESS_COUNT;++pid) {
+    volatile aurora_process_context *p=&process_table[pid];
+    kernel_console_put_uint(pid); kernel_boot_put_string("    ");
+    kernel_console_put_uint(pid-1u); kernel_boot_put_string("    ");
+    if(!p->valid && !p->name[0]) { kernel_boot_put_string("-        -    EMPTY\n"); continue; }
+    kernel_boot_put_string(p->console?"remote   ":"local    ");
+    kernel_boot_put_string(p->background?"BG   ":"FG   ");
+    kernel_boot_put_string(!p->valid?"EXITED ":p->waiting?(p->sleep_ms?"SLEEP  ":"WAIT   "):"READY  ");
+    for(aurora_word_t i=0u;p->name[i];++i) console_putchar(p->name[i]);
+    if(!p->valid) { kernel_boot_put_string(" / exit="); kernel_console_put_int(p->exit_code); }
+    if(graphics_owner==pid) kernel_boot_put_string(" [graphics]");
+    if(midi_owner==pid) kernel_boot_put_string(" [midi]");
+    console_putchar('\n');
+  }
 }
 /* Keep the command dispatcher out of the boot/idle function. The bundled
  * backend's high-pressure optimized dispatcher can corrupt live path pointers
@@ -197,25 +227,39 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
   while (length && name[length - 1u] == ' ') name[--length] = 0;
   if (!length) return;
   if (!shell_equal(name, "history")) shell_record_history();
+  aurora_word_t bg=0u;
+  if(name[length-1u]=='&') {
+    bg=1u; name[--length]=0u;
+    while(length && name[length-1u]==' ') name[--length]=0u;
+    if(!length) { kernel_boot_put_string("Missing program before &.\n"); return; }
+  }
   aurora_word_t *arg = name;
   while (*arg && *arg != ' ') ++arg;
   if (*arg) *arg++ = 0;
   while (*arg == ' ') ++arg;
+  if(bg && !shell_equal(name,"run") && !shell_equal(name,"quickrun")) {
+    kernel_file file;
+    if(*arg || !fs_open(name,&file)) { kernel_boot_put_string("Use NAME & or run NAME &.\n"); return; }
+    shell_run_file(name,&file,0u,1u); return;
+  }
   if (shell_equal(name, "help")) { shell_help(arg); return; }
   if (shell_equal(name, "echo")) { shell_put_words(arg); console_putchar('\n'); return; }
   if(shell_equal(name,"kill")) {
-    if(*arg && !shell_equal(arg,"1") && !shell_equal(arg,"user")) {
-      kernel_boot_put_string("Usage: kill [1|user]\n"); return;
-    }
+    aurora_word_t pid=0u;
+    if(arg[0]>='1' && arg[0]<='4' && !arg[1]) pid=arg[0]-'0';
+    else if(*arg && !shell_equal(arg,"user")) { kernel_boot_put_string("Usage: kill SLOT (1..4)\n"); return; }
     aurora.DisableInterrupt();
-    if(!process_table[PROCESS_USER].valid) {
+    if(!pid) {
+      /* Legacy no-argument kill is only unambiguous with one live process. */
+      for(aurora_word_t i=1u;i<PROCESS_COUNT;++i) if(process_table[i].valid) {
+        if(pid) { aurora.EnableInterrupt(); kernel_boot_put_string("Specify kill SLOT.\n"); return; }
+        pid=i;
+      }
+    }
+    if(!pid || !process_table[pid].valid) {
       aurora.EnableInterrupt(); kernel_boot_put_string("No user program running.\n"); return;
     }
-    aurora_word_t caller=shell_console;
-    shell_console=user_console;
-    finish_user_exit(137u);
-    kernel_boot_put_string("Terminated by system console (kill).\n");
-    shell_console=caller;
+    finish_process_exit(pid,137u);
     aurora.EnableInterrupt();
     kernel_boot_put_string("User process terminated.\n"); return;
   }
@@ -248,7 +292,7 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
     kernel_file file;
     if (!fs_open(arg, &file)) { kernel_boot_put_string("Program not found. Type ls.\n"); return; }
     if (shell_equal(name, "stat")) { shell_file_info(&file); return; }
-    if (shell_equal(name, "run") || shell_equal(name,"quickrun")) { shell_run_file(arg,&file,shell_equal(name,"quickrun")); return; }
+    if (shell_equal(name, "run") || shell_equal(name,"quickrun")) { shell_run_file(arg,&file,shell_equal(name,"quickrun"),bg); return; }
     if(shell_equal(name,"cat")) {
       if(file.type!=2u) { kernel_boot_put_string("Not a text file.\n"); return; }
       if(!fs_checksum(&file)) { kernel_boot_put_string("Text checksum mismatch.\n"); return; }
@@ -256,7 +300,7 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
         console_putchar((c==9u || c==10u || c==13u || (c>=32u && c<=126u))?c:'?'); }
       console_putchar('\n'); return;
     }
-    kernel_boot_put_string((file.type==1u?loader_load(&file,0u)!=0u:fs_checksum(&file)) ?
+    kernel_boot_put_string((file.type==1u?loader_load(&file,0u,0u)!=0u:fs_checksum(&file)) ?
         "File verified. UROM unchanged.\n" : "Invalid file.\n"); return;
   }
   if (*arg) { kernel_boot_put_string("Unexpected arguments. Type help.\n"); return; }
@@ -268,6 +312,7 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
     }
   } else if (shell_equal(name, "clear")) {
     console_putchar('\f'); shell_needs_banner = 1u;
+    if(!graphics_owner) graphics_logo_needed=1u;
   } else if (shell_equal(name, "mount")) {
     kernel_boot_put_string(fs_mount() ? "Storage mounted.\n" : "Invalid storage image.\n");
   } else if (shell_equal(name, "selftest")) { kernel_self_test();
@@ -278,7 +323,7 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
     kernel_boot_put_string("Aurora-32 System Console 1.0\n32-bit word-addressed CPU | ABI 3\n"
       "ASFS 1/2 / AEXE 1 | INT gateway 0x00000002\n"
       "Preemptive tick; queued event callbacks.\n"
-      "One resident kernel and one user slot.\n");
+      "Resident kernel + four banked user slots.\n");
   } else if (shell_equal(name, "df")) {
     kernel_boot_put_string("Device words:  "); kernel_console_put_uint(STORAGE_WORDS);
     kernel_boot_put_string(" (64 MiB)\n");
@@ -294,24 +339,22 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
     }
     if(fs_words) kernel_boot_put_string(fs_version==2u?"Text writable; freed extents reused.\n":"Legacy ASFS1: read-only.\n");
   } else if (shell_equal(name, "ps")) {
-    kernel_boot_put_string("SYSTEM  RUNNING  local + remote consoles\nUSER 1  ");
-    if(process_table[PROCESS_USER].valid) kernel_boot_put_string(user_console?"RUNNING  remote terminal\n":"RUNNING  local terminal\n");
-    else kernel_boot_put_string("EMPTY    ready for run\n");
-    kernel_boot_put_string("Last exit: ");
-    kernel_console_put_int(user_exit_code); kernel_boot_put_string("\nLast fault: ");
-    kernel_console_put_hex(user_fault_vector); console_putchar('\n');
+    shell_process_list();
   } else if (shell_equal(name, "mem")) {
     kernel_boot_put_string("WORD ADDRESS RANGES (not installed sizes)\n"
       "ROM    00000000-00FFFFFF  kernel code\nRAM    01000000-01FFFFFF  kernel data\n"
-      "KSTACK 02000000-02FFFFFF  banked stacks\nUROM   80000000-80FFFFFF  loaded code\n"
-      "URAM   81000000-81FFFFFF  user data\nUSTACK 82000000-82FFFFFF  user stack\n"
+      "KSTACK 02000000-02FFFFFF  banked stacks\nUROM   80000000-803FFFFF  user code\n"
+      "URAM   81000000-813FFFFF  user data\nUSTACK 82000000-823FFFFF  user stack\n"
+      "Logical ranges; slots 1..4 use banks 0..3.\n"
+      "Each bank: 4194304 words per user device.\n"
       "No MMU or dynamic memory allocator.\n");
   } else if (shell_equal(name, "devices")) {
     kernel_boot_put_string("Keyboard  04000000  IRQ 03000001\nTerminal  05000000  write\n"
       "Telnet    06000000  IRQ 03000002\nTick      07000000  IRQ 03000007\n"
-      "Timer     08000000  read milliseconds\nGraphics  09000000-09000009\n"
+      "Timer     08000000  read milliseconds\nGraphics  09000000-09900000 (stride 100000)\n"
+      "Grdata    09600000-096FFFFF bitmap RAM\nScreen    480x240\n"
       "MIDI      0A000000-0A00007F\nStorage   0B000000-0BFFFFFF  ASFS\n"
-      "LDMA      0C000000-0C000004 (SUM)\n");
+      "LDMA      0C000000-0C000004 (SUM)\nBank      0D000000  user memory selector\n");
   } else if (shell_equal(name, "netstat")) {
     /* Snapshot only; leave interrupts enabled during the potentially long print. */
     aurora.DisableInterrupt();
@@ -339,11 +382,11 @@ __attribute__((noinline,optnone)) static void shell_execute(void) {
   } else {
     kernel_file file;
     if (!fs_open(name, &file)) { kernel_boot_put_string("Program not found. Type ls or help.\n"); return; }
-    shell_run_file(name, &file,0u);
+    shell_run_file(name, &file,0u,0u);
   }
 }
 static void shell_service_one(void) {
-  if(process_table[PROCESS_USER].valid && user_console==shell_console) return;
+  if(foreground[shell_console]) return;
   if (shell_needs_prompt) {
     shell_length = shell_overflow = 0u; shell_line[0] = 0u;
     shell_needs_prompt = 0u;

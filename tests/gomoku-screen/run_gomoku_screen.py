@@ -7,7 +7,7 @@ from types import SimpleNamespace
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests/graphics-syscall'))
 from run_graphics import GraphicsCPU
-from font_reference import glyph_pixels, font_commands
+from font_reference import glyph_pixels, font_commands, logical_pixels
 from run_events import CheckedCPU
 
 
@@ -62,7 +62,7 @@ class BoardCPU(GraphicsCPU):
         if final:
             self.until(lambda: self.halted)
             assert 'exited with code 0.' in self.output and self.deadline is None
-            assert self.screen==[0x8000]*16000
+            assert self.screen==[0x8000]*115200
             # Board assertions below inspect the completed pre-exit image;
             # the normal shutdown itself must already have painted black.
             self.screen=self.exit_screen
@@ -75,43 +75,39 @@ class BoardCPU(GraphicsCPU):
 
 
 def board_pixels(cpu, expected, marked=()):
-    screen = cpu.screen
-    assert all(screen[y*160+x] == 0xe28d for y in range(86,96) for x in range(112,160)), 'screen quit hint must be absent'
-    # Grid lines survive every partial redraw.
+    screen=cpu.screen
+    logical=logical_pixels(screen)
+    assert all(logical[y*160+x]==0xe28d for y in range(86,96) for x in range(112,160))
     for i in range(6):
-        assert all(screen[y*160+24+i*16] == 0x9ca3 for y in range(16,97))
-        assert all(screen[(16+i*16)*160+x] == 0x9ca3 for x in range(24,105))
+        assert all(logical[y*160+24+i*16]==0x9ca3 for y in range(16,97))
+        assert all(logical[(16+i*16)*160+x]==0x9ca3 for x in range(24,105))
     for row in range(5):
         for col in range(5):
-            piece = expected[row*5+col]
-            for dy in range(1,16):
-                for dx in range(1,16):
-                    color = 0xe28d
-                    # Independent circle equation at pixel centers, radius 5.
-                    if piece and (2*dx-15)**2 + (2*dy-15)**2 <= 100:
-                        color = 1 if piece == 1 else 0
-                    if row*5+col in marked and 6 <= dx < 10 and 6 <= dy < 10:
-                        color = 2
-                    assert screen[(16+row*16+dy)*160+24+col*16+dx] == color, (row,col,dx,dy,piece)
-    assert sum(c[:4] == (0,0,160,100) for c in cpu.commands) == 1
-
+            piece=expected[row*5+col]
+            lx,ly=24+col*16,16+row*16
+            sx,sy=48+(lx+3)*12//5,(ly+3)*12//5
+            for y in range((ly+1)*12//5,(ly+16)*12//5):
+                for x in range(48+(lx+1)*12//5,48+(lx+16)*12//5):
+                    color=0xe28d
+                    if piece and 0<=x-sx<24 and 0<=y-sy<24 and (2*(x-sx)-23)**2+(2*(y-sy)-23)**2<=576:
+                        color=1 if piece==1 else 0
+                    if row*5+col in marked and 48+(lx+6)*12//5<=x<48+(lx+10)*12//5 and (ly+6)*12//5<=y<(ly+10)*12//5:
+                        color=2
+                    assert screen[y*480+x]==color,(row,col,x,y,piece)
+    assert sum(c[:4]==(0,0,480,240) for c in cpu.commands)==1
 
 def drawing_commands(cpu):
-    font_commands(SimpleNamespace(operations=[o for o in cpu.operations if o[-1] != 2]),
-                  0xe28d, {0x9ca3,1,0,2})
-    pieces = [o for o in cpu.operations if o[-1] == 2]
-    assert len(pieces) % 2 == 0
-    for top, bottom in zip(pieces[::2], pieces[1::2]):
-        x,y,w,h,c,bg,low,high,mode = top
-        assert (w,h) == (10,5) and c in (0,1) and bg == 0xe28d
-        assert x in range(27,92,16) and y in range(19,84,16)
-        assert bottom[:6] == (x,y+5,w,h,c,bg)
-        for half,op in enumerate((top,bottom)):
-            bits = op[6] | op[7] << 32
-            expected = sum(1 << (dy*10+dx) for dy in range(5) for dx in range(10)
-                           if (2*dx-9)**2 + (2*(dy+5*half)-9)**2 <= 100)
-            assert bits == expected
-
+    pairs=[(op,bits) for op,bits in zip(cpu.operations,cpu.image_bits) if op[-1]!=2]
+    font_commands(SimpleNamespace(operations=[o for o,b in pairs],image_bits=[b for o,b in pairs]),0xe28d,{0x9ca3,1,0,2})
+    for op,bits in zip(cpu.operations,cpu.image_bits):
+        x,y,w,h,c,bg,low,high,mode=op
+        if mode!=2: continue
+        assert (w,h)==(24,24) and c in (0,1) and bg==0xe28d
+        assert x in [48+(27+i*16)*12//5 for i in range(5)]
+        assert y in [(19+i*16)*12//5 for i in range(5)]
+        expected=sum(1<<(dy*24+dx) for dy in range(24) for dx in range(24)
+                     if (2*dx-23)**2+(2*dy-23)**2<=576)
+        assert bits==expected
 
 def winning_cells(board, player):
     lines = [[r*5+c for c in range(5)] for r in range(5)]
@@ -130,12 +126,12 @@ def selection_pixels(cpu, before, row=None, col=None):
     x, y, w, h = 24, 16, 81, 81
     if row is not None: y += row*16; h = 17
     else: x += col*16; w = 17
-    for py in range(100):
-        for px in range(160):
-            boundary = ((px in (x,x+w-1) and y <= py < y+h) or
-                        (py in (y,y+h-1) and x <= px < x+w))
-            expected = 0x99d8 if boundary else before[py*160+px]
-            assert cpu.screen[py*160+px] == expected, (px,py,row,col)
+    expected=before[:]
+    for rx,ry,rw,rh in [(x,y,w,1),(x,y+h-1,w,1),(x,y+1,1,h-2),(x+w-1,y+1,1,h-2)]:
+        for py in range(ry*12//5,(ry+rh)*12//5):
+            for px in range(48+rx*12//5,48+(rx+rw)*12//5):
+                expected[py*480+px]=0x99d8
+    assert cpu.screen==expected,(row,col)
 
 
 def controls():
@@ -156,15 +152,12 @@ def controls():
     expected[0] = 1
     board_pixels(cpu, expected)
     restored_border = cpu.commands[first:first+4]
-    assert all(color == 0x9ca3 and (w == 1 or h == 1) for x,y,w,h,color in restored_border)
-    for x,y,w,h,color in cpu.commands[first+4:]:
-        assert (120 <= x and x+w <= 126 and 8 <= y and y+h <= 18) or (27 <= x and x+w <= 37 and 19 <= y and y+h <= 29), 'normal move must touch only piece and digit'
-    assert len(cpu.commands) - first == 7, 'restore border=4, disk=2 bitmaps, digit=1 bitmap'
-    assert cpu.operations[-1][-1] == 1
-    glyph_pixels(cpu.screen, 120, 8, '2', 0, 0xe28d)
-    piece_commands = [c for c in cpu.commands[first+4:] if c[0] < 112]
-    assert len(piece_commands) == 2 and sum(w*h for x,y,w,h,color in piece_commands) == 100
-    assert [o[-1] for o in cpu.operations[first+4:first+6]] == [2,2]
+    assert all(color == 0x9ca3 and (2 <= w <= 3 or 2 <= h <= 3) for x,y,w,h,color in restored_border)
+    assert len(cpu.commands)-first==6,'restore=4, disk=1, digit=1'
+    assert cpu.operations[-1][-1]==1
+    glyph_pixels(cpu.screen,120,8,'2',0,0xe28d)
+    assert cpu.operations[first+4][2:4]==(24,24) and cpu.operations[first+4][-1]==2
+    assert cpu.operations[first+5][2:4]==(12,16)
     # Occupied cell does not consume player 2's turn.
     cpu.press('1A')
     board_pixels(cpu, expected)
@@ -175,8 +168,8 @@ def controls():
     assert len(cpu.commands) == first + 4
     first = len(cpu.commands)
     cpu.press('e')
-    piece_commands = [c for c in cpu.commands[first+4:] if c[0] < 112]
-    assert len(piece_commands) == 2 and all(c[4] == 0 for c in piece_commands)
+    piece_commands = [o for o in cpu.operations[first+4:] if o[-1]==2]
+    assert len(piece_commands)==1 and piece_commands[0][4]==0
     expected[24] = 2
     board_pixels(cpu, expected)
     before = cpu.screen[:]
@@ -188,7 +181,7 @@ def controls():
     for i,c in enumerate('QUIT'):
         glyph_pixels(cpu.screen, 112+i*8, 24, c, 0x9ca3, 0xe28d)
     drawing_commands(cpu)
-    assert not any(o[2:5] == (4,4,2) and o[-1] == 0 for o in cpu.operations)
+    assert not any(9<=o[2]<=10 and 9<=o[3]<=10 and o[4]==2 and o[-1] == 0 for o in cpu.operations)
     print('PASS board controls: both coordinate orders/case, edit, invalid/occupied, local rendering, Q', flush=True)
 
 
@@ -207,9 +200,9 @@ def game(name, moves, winner, duration=120):
         glyph_pixels(cpu.screen, 112+i*8, 24, c, 0x9ca3, 0xe28d)
     assert cpu.ticks > 0
     drawing_commands(cpu)
-    marks = [o for o in cpu.operations if o[2:5] == (4,4,2) and o[-1] == 0]
-    assert [(o[0],o[1]) for o in marks] == [(30+i%5*16,22+i//5*16) for i in marked]
-    assert len([o for o in cpu.operations if o[-1] == 2]) == 2*len(moves)
+    marks = [o for o in cpu.operations if 9<=o[2]<=10 and 9<=o[3]<=10 and o[4]==2 and o[-1]==0]
+    assert [(o[0],o[1]) for o in marks] == [(48+(30+i%5*16)*12//5,(22+i//5*16)*12//5) for i in marked]
+    assert len([o for o in cpu.operations if o[-1] == 2]) == len(moves)
     print(f'PASS {name}: {len(moves)} moves, {cpu.restores} full callback restores', flush=True)
 
 

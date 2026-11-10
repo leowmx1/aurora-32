@@ -7,7 +7,7 @@ from collections import deque
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests/graphics-syscall'))
 from run_graphics import GraphicsCPU
-from font_reference import glyph_pixels, font_commands
+from font_reference import glyph_pixels, font_commands, logical_pixels
 from run_events import CheckedCPU
 
 BACKGROUND, WALL, MARKER = 0xf798, 0xa1ee, 0xed27
@@ -16,13 +16,8 @@ FONT = [[7,5,5,5,7], [2,6,2,2,7], [7,1,7,4,7], [7,1,7,1,7], [5,5,7,1,1],
         [7,4,7,1,7], [7,4,7,5,7], [7,1,1,1,1], [7,5,7,5,7], [7,5,7,1,7]]
 
 def score_pixels(screen, moves):
-    for i, digit in enumerate(f'{moves % 1000:03d}'):
-        for row, bits in enumerate(FONT[int(digit)]):
-            for col in range(3):
-                color = WALL if bits & (4 >> col) else BACKGROUND
-                for dy in range(2):
-                    for dx in range(2):
-                        assert screen[(row*2+dy)*160+28+i*8+col*2+dx] == color, (moves,i,row,col)
+    for i,digit in enumerate(f'{moves % 1000:03d}'):
+        glyph_pixels(screen,28+i*8,0,digit,WALL,BACKGROUND)
 
 
 class MazeCPU(GraphicsCPU):
@@ -62,6 +57,7 @@ class MazeCPU(GraphicsCPU):
 
 
 def inspect(screen):
+    screen=logical_pixels(screen)
     grid = {(x,y): screen[(12+y*8)*160+20+x*8] == BACKGROUND for y in range(11) for x in range(15)}
     assert sum(grid.values()) == 69, '35 rooms and 34 carved connecting cells'
     assert all(not grid[x,y] for x,y in grid if x in (0,14) or y in (0,10))
@@ -76,6 +72,7 @@ def inspect(screen):
 
 
 def player(screen, position):
+    screen=logical_pixels(screen)
     x,y = position
     assert all(screen[(12+y*8+dy)*160+20+x*8+dx] == MARKER for dy in range(2,6) for dx in range(2,6))
 
@@ -113,15 +110,15 @@ def run():
         cpu.press(key); screen, commands=cpu.next_frame()
         assert inspect(screen)==grid; player(screen,position)
         score_pixels(screen,i+1)
-        map_commands=[c for c in commands if c[1]>=12]
+        map_commands=[c for c in commands if c[1]>=44]
         assert len(map_commands)==(3 if i==0 else 2), map_commands
         assert cpu.output == baseline, 'movement printed to terminal'
     # Leaving start restores the small teal start marker.
-    assert screen[(12+8+3)*160+20+8+3] == WALL
+    assert logical_pixels(screen)[(12+8+3)*160+20+8+3] == WALL
     cpu.press('r'); screen,commands=cpu.next_frame()
     assert inspect(screen)==grid; player(screen,(1,1))
     score_pixels(screen,0)
-    assert not any(c[2:4]==(120,88) for c in commands), 'restart must not regenerate'
+    assert not any(c[2:4]==(240,176) for c in commands), 'restart must not regenerate'
     assert cpu.output == baseline, 'restart printed to terminal'
     layouts={tuple(grid.values())}
     for _ in range(3):
@@ -142,7 +139,7 @@ def run():
     assert cpu.output.count('Screen Maze:') == 1 and cpu.output.count('Steps: ') == 1
     assert f'Steps: {steps}  Time: ' in cpu.output
     assert cpu.ticks>0 and cpu.restores>10 and cpu.deadline is None
-    assert sum(c[:4]==(0,0,160,100) for c in cpu.exit_commands)==1
+    assert sum(c[:4]==(0,0,480,240) for c in cpu.exit_commands)==1
     font_commands(cpu, BACKGROUND, {WALL})
     print(f'PASS maze BIN: walls/reachability, dirty moves, restart, {len(layouts)} distinct layouts, exit; {cpu.restores} restored callbacks')
     cpu=MazeCPU(); cpu.next_frame(); cpu.press('q'); cpu.until(lambda:cpu.halted)

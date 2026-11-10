@@ -1,5 +1,118 @@
 # 打包验证记录
 
+## 2026-11-07：后台终端输出静默丢弃
+
+- 内核在用户输出系统调用中抑制后台 stdout，覆盖本地/远程 PutChar、PutInt、PutString、
+  Write 和库的 buffer.Flush；参数检查保留，有效 Write 返回 count，不读取缓冲区或写设备。
+  PutString 保留有界零终止检查。SYSTEM 的退出/故障通知不被过滤。
+- `run_background.py` 通过：直接后台启动及主动转后台，四种输出及两个缓冲批次的返回值，
+  非法参数错误，dispatch 到 return 期间两端输出设备零写入，前台交互和具名退出通知。
+- `run_multiprocess.py` 通过：四银行并行、双端回调、双前台被占用时的后台退出通知、
+  资源所有权、槽位复用和生产版 process-demo + calculator。
+- `run_choices.py` 通过：后台编译无进度但可执行产物正确，前台仍显示进度，Y/N/默认/
+  取消/远程 CRLF，以及源码读取期间远程 ls 的 180 次 EBUSY 重试。
+- `run_compiler.py`、`run_tinyc_examples.py`、`run_install.py` 通过，覆盖前台编译进度、
+  语言/错误处理、机内生成程序执行、远程后台编译及只读存储拒绝。
+- 重建内核；用户程序 ABI 和二进制不变。storage 仅重新打包更新的 Tiny C 使用说明。
+  此次功能只需重载 ROM，无需为此覆盖已有 EEPROM 数据。
+- ROM HEX SHA256：`B5730D9E39CA036882A04283ABB462936B0249B15F00F0A1874E484234F40DBF`。
+  Storage HEX SHA256：`E4C5C21A76A935D8ED841F9ADF219A61C50336B422BB68397371BFF94CE7656C`。
+- 测试执行实际 BIN，使用理想 ISA/设备模型；不是 Digital 电路时序测试。
+
+## 2026-11-07：四用户银行、主动转后台与非零银行回调修复
+
+- SYSTEM + 四用户槽，本地/远程各一个 FG、一个 BG。`NAME &`、`run NAME &`、
+  `quickrun NAME &`，具名退出通知、`ps` 全槽信息、`kill SLOT`、独立栈/事件/文件引用，
+  GPU/MIDI 独占，LDMA 忙时暂停用户取指。稳定单用户版本留在
+  `backups/2026-11-07-before-multiprocess/`，不修改电路或微码。
+- 当前 mcproj 的 PUSHU/POPU 仅选择 USP，不清 KernelMode。旧测试错误地为 PUSHU
+  应用了用户银行，遗漏非零银行回调返回地址写入 bank 0 的问题。修正模型后，旧内核可
+  复现 `process-demo &` + Tetris bank 1 单键触发的 `Input queue overflow`。
+  新内核显式写 `USP + bank_base` 并 LUSP 更新逻辑指针；Tetris bank 0/1 的旋转、移动、
+  硬降、暂停、退出测试通过，四银行回调现场与资源隔离测试也通过。
+- 系统调用 36 / `system.Background()` 释放前台而不迁移现场。编译器收齐路径后询问 `[Y/n]`，
+  Y/回车才调用，N 留前台，q 取消；无效回答重问，单独 LF 和 CRLF 均覆盖。
+  配额满时继续前台；文件系统 EBUSY 时 Yield 重试。Background 专项测试通过：
+  callback/defer/参数拒绝、忙时无副作用、幂等、输入交接、局部栈/全局保持、两端提示符、
+  前台继续运行和退出通知。编译器测试不再将“提示符出现”误判为“编译完成”。
+- 修正脏内存测试按物理银行检查已写地址，避免把 bank 1 的已初始化全局误判为未写内存。
+- `run_choices.py` 实际执行“编译器读源码 + 远程 ls”，观察到 **180 次**内核返回
+  EBUSY(-5)，均 Yield 重试后完成读取；未放开 FS 互斥。Open/Info/Read/Install 的
+  定向忙返回测试也验证仅重试 EBUSY，不屏蔽其他文件错误。
+- 自举验证通过：compiler2/3 均为 **21,743 字**，完整 AEXE 逐字一致。期间前台 bank 1
+  计算器继续响应；compiler3 编译数组示例得到 562 字并输出 1..5。自举 BIN SHA256：
+  `C40CE5C947881C022CE58E72AF65853AB12810EABD3AFAC5A2F6CF4B52CB8227`。
+- 内核、九个用户程序已重新构建，storage 为 144,876 字、20 项。镜像内 readme 提醒
+  自动转后台后须等待编译完成，而不是立即运行尚未创建的产物。随包 SDK 两份一致，
+  toolchain-manifest 的 323 个文件长度与 SHA256 均核验通过。
+- ROM HEX SHA256：`5467ECAFA044E49048C5DA358B2B4A94183D0F59AD7DAD46D38A748290D8CFBC`。
+  Storage HEX SHA256：`C79B98E110E0D5FAAC12F543D518C5587A856882DC9AD254EE1949319F1D1A5A`。
+- 存储/LDMA/远程/四银行/后台切换、Tetris、普通编译/语言错误/示例/边界/脏内存启动、
+  事件/Sleep、位图、五子棋、迷宫、贪吃蛇回归分段通过。增加询问后重跑编译器普通、
+  选项/并发 FS、远程/示例、保存拒绝、启动和完整自举测试。
+- 所有测试均执行生成 BIN，设备采用理想契约模型；**不是 Digital 电路时序验收**。
+
+## 2026-11-07：compiler 函数级进度输出
+
+- 开始编译函数体前输出 `  Function: NAME`，直接读取符号表中的函数名；参数名不会覆盖提示。
+  不输出仅声明的函数原型，不逐行/token 刷屏。失败时保留最后一个函数提示和原有行号诊断。
+- `run_compiler.py` 新增函数名/顺序、跳过原型、语法错误前提示的断言，并通过普通编译回归。
+  `run_startup.py`、`run_tinyc_examples.py` 通过，包含脏内存启动和远程终端回归。
+- `run_selfhost.py` 通过：compiler2/3 均为 20,991 字且完整 AEXE 逐字一致，二者均显示函数进度。
+  compiler3 编译数组示例仍生成 562 字且正确输出排序结果。自举 BIN SHA256：
+  `ADD30E7FBEDFC3C59DB498F114295261165944A5783B804C0469C689687A8610`。
+- 仅重建 compiler 并重新打包 storage，内核和硬件未修改。种子代码 17,191 字；
+  storage 142,842 字、19 项，SHA256：
+  `8AD4963D093D71BC88B2AA55C66C33AB36D5C85A2BB404A3E67B0B70B4A85AFE`。
+- 测试执行真实 BIN，但使用理想 ISA/设备模型，不是 Digital 电路实测。
+
+## 2026-11-03：compiler 启动清零延迟修复
+
+- 问题位于用户程序 `_start` 的全局初始化，而非 LDMA 加载：旧种子在第一条输出前
+  执行 1,559,292 条用户指令、223,835 次 URAM 写入，大部分是在清零未使用工作区。
+- 编译器工作数组改用显式 `.noinit`，按有效长度填充，新符号逐个初始化；普通变量仍清零。
+  Tiny C 同步支持全局数组的 `__attribute__((section(".noinit")))`，保持同源自举。
+- 新种子第一条输出：5,884 条用户指令、2,022 次 URAM 写入。实际内核模型中两次启动至
+  `Source >` 分别为 14,906 / 14,109 条指令；未写 URAM 强制返回 `0xdeadbeef`，验证不依赖零内存。
+- `run_compiler.py`、`run_tinyc_examples.py`、`run_limits.py`、新增 `run_startup.py` 通过，
+  覆盖普通全局清零、跳过 noinit、拒绝非法属性、递归/数组/指针、异常输入、键盘和远程输入。
+- 脏内存下 `run_selfhost.py` 通过：compiler2/3 均为 20,928 个代码字，完整 AEXE 逐字相同，
+  compiler3 编译/执行排序示例成功。BIN SHA256：
+  `CD04364CD6EB78578868378C687005681D870CE14BC035713EF9BDB6E6F85CEB`。
+  自举 compiler2 第一条输出前只需 129 条用户指令。
+- 仅重建 compiler 和 storage，内核保持不变。storage 为 142,734 字、19 项，SHA256：
+  `15435AC2E32428F921068B2E1323A1C9D06E9C88B61C64881729AA3929250D3F`。
+- 上述计数来自执行真实 BIN 的理想 ISA/设备模型，不是 Digital 实测耗时。
+  下方自举记录是本次优化前的历史产物，当前结果见 `tests/compiler/build/selfhost.json`。
+
+## 2026-11-03：Tiny C 原生自举、Editor 与源码镜像
+
+- `txt-viewer` 更名为 `editor`；新增用户态 `compiler`，以同一份源码完成机内编译自身。
+  支持函数/原型/递归、全局和局部数组、指针/索引/取地址、短路运算和原生运行库。
+- 源码上限 65536 字符，生成代码上限 131072 字；文件服务新增 create-only Install(35)，
+  内核生成 AEXE 单段头并写后读回，禁止覆盖已存在路径；文本容量和 editor 工作区扩展到 65536。
+- 重新构建内核和全部八个用户目标：内核 61,932 字，LLVM 种子 compiler 16,594 字。
+  `tinyc/` 只放未编译源码和说明，包含 exact `compiler.c`、hello、keys、recursion、arrays、pointers。
+  旧 loop-only Fibonacci/GCD 示例移除，新增自举前备份 `backups/2026-11-03-before-selfhost/`。
+- `run_selfhost.py` 在实际内核/用户 BIN 的理想 ISA/设备模型中验证：compiler → compiler2 →
+  compiler3，后两代 AEXE 和代码逐字相同；随后用 compiler3 编译并运行数组排序示例。
+  自举链生成 20,143 个代码字，比较阶段累计 44,084,445 条指令、14,348 次 tick。
+  这不是 Digital 电路测试，模型 timer 数字也不是实机耗时。
+- 自举结果原始 BIN SHA256：`FD875D5FB64F2CDD5115413C1C9D2E3BA4C847E49A668AE0DF79C93C4E4A5B1C`。
+  输入源码规范 LF SHA256：`6C7549A84DCC32EB6D7BDF1299D9300383D30C4D3CD17D6DF79B353D695295A1`。
+- 一致性检查曾发现种子 Clang 将字符串首字按 int 读取折叠为四个打包字符；改为正确的字符读取后
+  消除了高位差异。Sleep 包装显式清零保留参数寄存器，避免遗留值导致 EINVAL。
+- kernel.hex SHA256：`88BCA1A481B50CAE2CC0AF068892E6555E7E10F0DFC965D4338CD8870063AD24`。
+  storage.hex：142,245 字、19 项；SHA256：`A0C4F6ED867064D6E669F55AF68435E6D8A2DB0EC22F6EC7F00C9804160EEF86`。
+- 第一条启动输出仍为 22 条指令；包含更多目录项后启动提示符为 123,578 条。
+  editor 首次提示符 21,713 条（旧优化前基线 103,780）；扩大 noinit 工作区没有引入全量清零。
+- `tests/run-regression.ps1 -SkipBuild -Python pypy3` 全部通过：生产存储/LDMA/文件/编辑器/
+  双终端/关机/性能/Tetris/编译器/Install，以及 direct-boot 的事件、Sleep、图形和三个屏幕游戏。
+  单独运行全部 tinyc 源码示例测试通过，并验证远程 compiler 的 CRLF 输入、生成程序的键盘阻塞
+  输入及另一端系统终端隔离。无 Digital 电路或微码修改；硬件时序仍需实机确认。
+- 独立用户 ISA 模型还验证 8 参数调用、指针/字符串返回，以及源码、代码、全局数据、函数帧
+  超限拒绝；被拒绝时没有调用 Install。
+
 ## 2026-11-01：LDMA UROM 读回 SUM 替代加载 Check/CPU Verify
 
 - SUM 硬件契约改为 UROM 写后读回累加；最后一次读回与累加完成后才能将 stat 清零。
@@ -51,12 +164,12 @@
 - 存储镜像 SHA-256：`D7AA9F7DEAC66B0372127F3910B67BD9558DB7D11CD324DC30465C05D5AF2B53`。
 - UROM 地址不变，物理设备改为断电归零的 RAM；没有增加关机清除逻辑。
   启动取消三秒等待，直接进入终端，显示 timer 测得的启动毫秒数。
-- 相同指令级模型：第一条启动日志从约 30,026 条指令提前至 22 条；txt-viewer
+- 相同指令级模型：第一条启动日志从约 30,026 条指令提前至 22 条；editor
   从进入用户态到提示符由约 103,780 条降为 22,027 条（约减少 79%）。
   这是执行指令数，不是 Digital 的实测耗时。正文、帮助和文件名均验证批量输出。
 - 本地/远程独立命令行、历史、提示符和程序 I/O；双向启动、拒绝第二次装载、
   CRLF 交接、kill 清理、netstat 统计与活动编辑器文件 ID 保护测试通过。
-- txt-viewer 在未初始化 RAM 填充非零旧值的情况下，通过编辑、保存、退出/重开检查，
+- editor 在未初始化 RAM 填充非零旧值的情况下，通过编辑、保存、退出/重开检查，
   不依赖 RAM 为零，也不暴露旧草稿。输出 ABI 边界、4096 字未终止字符串上限通过。
 - 俄罗斯方块使用 10×20 棋盘和 4×4 像素格；编译后的自测覆盖旋转、墙踢、七袋随机、
   锁定、单行/四行消除、计分和结束。正式游戏 BIN 验证差量绘制、休眠、按键与退出。

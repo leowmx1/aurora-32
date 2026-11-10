@@ -1,6 +1,6 @@
 param(
   [string]$KernelObject = (Join-Path $PSScriptRoot '..\kernel\build\kernel.o'),
-  [ValidateSet('all', 'calculator', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'txt-viewer', 'tetris')]
+  [ValidateSet('all', 'calculator', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'editor', 'tetris', 'compiler', 'process-demo')]
   [string]$Program = 'all'
 )
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,9 @@ $programs = @(
   @{ Name='snake-screen'; Directory='snake-screen'; Source='snake_screen.c'; Extra=@() },
   @{ Name='maze-screen'; Directory='maze-screen'; Source='maze_screen.c'; Extra=@() },
   @{ Name='tetris'; Directory='tetris'; Source='tetris.c'; Extra=@() },
-  @{ Name='txt-viewer'; Directory='txt-viewer'; Source='txt_viewer.c'; Extra=@() }
+  @{ Name='editor'; Directory='editor'; Source='editor.c'; Extra=@() },
+  @{ Name='compiler'; Directory='compiler'; Source='compiler.c'; Extra=@('-fwrapv','-fno-inline-functions') },
+  @{ Name='process-demo'; Directory='process-demo'; Source='process_demo.c'; Extra=@() }
 )
 foreach ($item in $programs) {
   if ($Program -ne 'all' -and $Program -ne $item.Name) { continue }

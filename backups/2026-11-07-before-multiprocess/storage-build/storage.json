@@ -1,0 +1,199 @@
+{
+  "Format": "ASFS",
+  "Version": 2,
+  "BaseAddress": "0x0B000000",
+  "Words": 142842,
+  "SHA256": "0A9EA304677CED8A66A592795790C4C94D0290D3884B51CD528719E193E47163",
+  "Files": [
+    {
+      "Name": "calculator",
+      "Type": "Executable",
+      "ID": 1,
+      "Parent": 0,
+      "OffsetWords": 4096,
+      "Words": 4298,
+      "CapacityWords": 4298,
+      "Checksum": "47AEEF6B"
+    },
+    {
+      "Name": "guess-number",
+      "Type": "Executable",
+      "ID": 2,
+      "Parent": 0,
+      "OffsetWords": 8394,
+      "Words": 2890,
+      "CapacityWords": 2890,
+      "Checksum": "F594A444"
+    },
+    {
+      "Name": "snake",
+      "Type": "Executable",
+      "ID": 3,
+      "Parent": 0,
+      "OffsetWords": 11284,
+      "Words": 8412,
+      "CapacityWords": 8412,
+      "Checksum": "E72F0F01"
+    },
+    {
+      "Name": "maze",
+      "Type": "Executable",
+      "ID": 4,
+      "Parent": 0,
+      "OffsetWords": 19696,
+      "Words": 5685,
+      "CapacityWords": 5685,
+      "Checksum": "E3F2D3AD"
+    },
+    {
+      "Name": "gomoku",
+      "Type": "Executable",
+      "ID": 5,
+      "Parent": 0,
+      "OffsetWords": 25381,
+      "Words": 6010,
+      "CapacityWords": 6010,
+      "Checksum": "4E94CD4F"
+    },
+    {
+      "Name": "tetris",
+      "Type": "Executable",
+      "ID": 6,
+      "Parent": 0,
+      "OffsetWords": 31391,
+      "Words": 6533,
+      "CapacityWords": 6533,
+      "Checksum": "AC753E90"
+    },
+    {
+      "Name": "editor",
+      "Type": "Executable",
+      "ID": 7,
+      "Parent": 0,
+      "OffsetWords": 37924,
+      "Words": 5785,
+      "CapacityWords": 5785,
+      "Checksum": "F384CC41"
+    },
+    {
+      "Name": "compiler",
+      "Type": "Executable",
+      "ID": 8,
+      "Parent": 0,
+      "OffsetWords": 43709,
+      "Words": 17213,
+      "CapacityWords": 17213,
+      "Checksum": "9EB1F565"
+    },
+    {
+      "Name": "docs",
+      "Type": "Directory",
+      "ID": 9,
+      "Parent": 0,
+      "OffsetWords": 0,
+      "Words": 0,
+      "CapacityWords": 0,
+      "Checksum": "00000000"
+    },
+    {
+      "Name": "docs/welcome.txt",
+      "Type": "Text",
+      "ID": 10,
+      "Parent": 9,
+      "OffsetWords": 60922,
+      "Words": 397,
+      "CapacityWords": 2048,
+      "Checksum": "00008C39"
+    },
+    {
+      "Name": "docs/notes.txt",
+      "Type": "Text",
+      "ID": 11,
+      "Parent": 9,
+      "OffsetWords": 62970,
+      "Words": 140,
+      "CapacityWords": 2048,
+      "Checksum": "000030D4"
+    },
+    {
+      "Name": "tinyc",
+      "Type": "Directory",
+      "ID": 12,
+      "Parent": 0,
+      "OffsetWords": 0,
+      "Words": 0,
+      "CapacityWords": 0,
+      "Checksum": "00000000"
+    },
+    {
+      "Name": "tinyc/hello.c",
+      "Type": "Text",
+      "ID": 13,
+      "Parent": 12,
+      "OffsetWords": 65018,
+      "Words": 148,
+      "CapacityWords": 2048,
+      "Checksum": "0000246F"
+    },
+    {
+      "Name": "tinyc/keys.c",
+      "Type": "Text",
+      "ID": 14,
+      "Parent": 12,
+      "OffsetWords": 67066,
+      "Words": 243,
+      "CapacityWords": 2048,
+      "Checksum": "00003EC6"
+    },
+    {
+      "Name": "tinyc/recursion.c",
+      "Type": "Text",
+      "ID": 15,
+      "Parent": 12,
+      "OffsetWords": 69114,
+      "Words": 373,
+      "CapacityWords": 2048,
+      "Checksum": "00007142"
+    },
+    {
+      "Name": "tinyc/arrays.c",
+      "Type": "Text",
+      "ID": 16,
+      "Parent": 12,
+      "OffsetWords": 71162,
+      "Words": 702,
+      "CapacityWords": 2048,
+      "Checksum": "0000B288"
+    },
+    {
+      "Name": "tinyc/pointers.c",
+      "Type": "Text",
+      "ID": 17,
+      "Parent": 12,
+      "OffsetWords": 73210,
+      "Words": 492,
+      "CapacityWords": 2048,
+      "Checksum": "0000868B"
+    },
+    {
+      "Name": "tinyc/readme.txt",
+      "Type": "Text",
+      "ID": 18,
+      "Parent": 12,
+      "OffsetWords": 75258,
+      "Words": 1097,
+      "CapacityWords": 2048,
+      "Checksum": "00017B2D"
+    },
+    {
+      "Name": "tinyc/compiler.c",
+      "Type": "Text",
+      "ID": 19,
+      "Parent": 12,
+      "OffsetWords": 77306,
+      "Words": 28807,
+      "CapacityWords": 65536,
+      "Checksum": "002093AD"
+    }
+  ]
+}

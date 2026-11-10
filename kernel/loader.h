@@ -47,7 +47,9 @@ loader_unmapped_sum(const kernel_file *file) {
   return sum;
 }
 __attribute__((noinline)) static aurora_word_t
-loader_load(const kernel_file *file, aurora_word_t install) {
+loader_load(const kernel_file *file, aurora_word_t install, aurora_word_t pid) {
+  if(install && (!pid || pid>=PROCESS_COUNT || process_table[pid].valid)) return 0u;
+  aurora_word_t bank_base=install?(pid-1u)*USER_BANK_WORDS:0u;
   /* install=0: non-destructive Storage verification; 2: quickrun skips comparison.
    * Hardware still reads back UROM for both run and quickrun. */
   if(file->type!=1u || file->words<16u ||
@@ -108,12 +110,13 @@ loader_load(const kernel_file *file, aurora_word_t install) {
     pos = 0u;
     if (dest >= AURORA_UROM_BEGIN && dest < AURORA_UROM_END) {
       /* All segments were checked before the first DMA. Code has n == mem.
-       * Submit internal 24-bit offsets, not CPU addresses. A full 2^24-word
-       * segment needs two jobs so LENGTH also fits in 24 bits. */
+       * Submit internal 24-bit physical offsets, not CPU addresses.
+       * A slot owns one 2^22-word physical bank.
+       * LDMA itself is not translated by the bank selector. */
       while (pos < n) {
         aurora_word_t chunk=n-pos;
         if(chunk>0x00ffffffu) chunk=0x00ffffffu;
-        aurora_word_t copied_sum=ldma_copy(file->offset+off+pos,dest-AURORA_UROM_BEGIN+pos,chunk);
+        aurora_word_t copied_sum=ldma_copy(file->offset+off+pos,bank_base+dest-AURORA_UROM_BEGIN+pos,chunk);
         if(dma_check) sum+=copied_sum;
         pos+=chunk;
       }
@@ -124,7 +127,7 @@ loader_load(const kernel_file *file, aurora_word_t install) {
     for (aurora_word_t part = 1; part <= 10u; ++part) {
       aurora_word_t end = mem * part / 10u;
       while (pos < end) {
-        aurora.Write(dest + pos, pos < n ? fs_read(file, off + pos) : 0u);
+        aurora.Write(bank_base + dest + pos, pos < n ? fs_read(file, off + pos) : 0u);
         ++pos;
       }
       loader_progress("Copy   ", part);
@@ -154,7 +157,7 @@ loader_load(const kernel_file *file, aurora_word_t install) {
     for (aurora_word_t part = 1; part <= 10u; ++part) {
       aurora_word_t end = mem * part / 10u;
       while (pos < end) {
-        if (aurora.Read(dest + pos) != (pos < n ? fs_read(file, off + pos) : 0u)) {
+        if (aurora.Read(bank_base + dest + pos) != (pos < n ? fs_read(file, off + pos) : 0u)) {
           kernel_boot_put_string(" FAILED\n"); return 0u;
         }
         ++pos;

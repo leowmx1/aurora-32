@@ -130,6 +130,7 @@ kernel_midi_sequence(aurora_word_t address, aurora_word_t count, aurora_word_t f
   aurora_word_t words = count * 4u;
   if (address > 0xffffffffu - words || !is_user_read_address(address) ||
       !is_user_read_address(address + words - 1u)) return AURORA_EFAULT;
+  address=user_physical(address);
   aurora_word_t total = 0u;
   for (aurora_word_t i = 0u; i < words; i += 4u) {
     aurora_word_t note = aurora.Read(address + i);

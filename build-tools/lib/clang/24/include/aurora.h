@@ -87,6 +87,12 @@ typedef struct aurora_api {
   volatile const aurora_word *keyboard;
   volatile aurora_word *terminal;
   volatile aurora_word *telnet;
+#ifndef AURORA_USER_API_ONLY
+  void (*SetUserStackPointer)(aurora_u32);
+  void (*SetUserFramePointer)(aurora_u32);
+  aurora_u32 (*GetUserStackPointer)(void);
+  aurora_u32 (*GetUserFramePointer)(void);
+#endif
 } aurora_api;
 
 #ifndef AURORA_USER_API_ONLY
@@ -98,6 +104,29 @@ __aurora_enable_interrupt(void) {
 static __inline__ __attribute__((always_inline)) void
 __aurora_disable_interrupt(void) {
   __builtin_aurora_disable_interrupt();
+}
+
+/* Privileged access to inactive user pointers; KSP/KFP are unchanged.
+ * The scheduler must mask IRQs around an entire context switch. */
+static __inline__ __attribute__((always_inline)) void
+__aurora_set_user_stack_pointer(aurora_u32 address) {
+  __asm__ volatile("lusp %0" : : "r"(address) : "memory");
+}
+static __inline__ __attribute__((always_inline)) void
+__aurora_set_user_frame_pointer(aurora_u32 address) {
+  __asm__ volatile("lufp %0" : : "r"(address) : "memory");
+}
+static __inline__ __attribute__((always_inline)) aurora_u32
+__aurora_get_user_stack_pointer(void) {
+  aurora_u32 value;
+  __asm__ volatile("ousp %0" : "=r"(value) : : "memory");
+  return value;
+}
+static __inline__ __attribute__((always_inline)) aurora_u32
+__aurora_get_user_frame_pointer(void) {
+  aurora_u32 value;
+  __asm__ volatile("oufp %0" : "=r"(value) : : "memory");
+  return value;
 }
 #endif
 
@@ -236,6 +265,13 @@ static const aurora_api aurora = {
     (volatile aurora_word *)(unsigned long)0x03000000u,
     (volatile const aurora_word *)(unsigned long)0x04000000u,
     (volatile aurora_word *)(unsigned long)0x05000000u,
-    (volatile aurora_word *)(unsigned long)0x06000000u};
+    (volatile aurora_word *)(unsigned long)0x06000000u,
+#ifndef AURORA_USER_API_ONLY
+    __aurora_set_user_stack_pointer,
+    __aurora_set_user_frame_pointer,
+    __aurora_get_user_stack_pointer,
+    __aurora_get_user_frame_pointer,
+#endif
+};
 
 #endif

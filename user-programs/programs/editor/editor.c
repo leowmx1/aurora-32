@@ -1,9 +1,9 @@
 #include <aurora.h>
 #include <aurora_system.h>
 AURORA_USER_PROGRAM;
-#define TEXT_MAX 4096u
+#define TEXT_MAX 65536u
 /* Only [0,length) / successfully read prefixes are consumed. No need to clear
- * 8192 words on every launch; stale RAM outside these prefixes is never read. */
+ * both 64K-word buffers on launch; stale RAM outside prefixes is never read. */
 static aurora_word_t text[TEXT_MAX] __attribute__((section(".noinit")));
 static aurora_word_t scratch[TEXT_MAX] __attribute__((section(".noinit")));
 static aurora_word_t line[160];
@@ -29,7 +29,7 @@ static int equal(const aurora_word_t *s,const char *t) {
   while(*s && *s==*t) { ++s; ++t; } return *s==*t;
 }
 static void error(int code) { put_text("Error: "); system.io.PutInt(code); system.io.PutChar('\n'); }
-static void prompt(void) { put_text(dirty?"txt* > ":"txt > "); }
+static void prompt(void) { put_text(dirty?"editor* > ":"editor > "); }
 static void show(void) {
   if(!opened) { put_text("Open a text file first.\n"); return; }
   for(aurora_word_t pos=0u;pos<length;) {
@@ -149,7 +149,7 @@ __attribute__((noreturn)) void _start(void) {
   aurora.SetUpStackPointer();
   system.DeferEvents();
   if(system.io.Subscribe(key)!=AURORA_OK) system.Exit(1);
-  put_text("Aurora-32 Text Viewer / Editor\n"); help(); prompt();
+  put_text("Aurora-32 Editor\n"); help(); prompt();
   system.ResumeEvents();
   for(;;) system.WaitEvent();
 }

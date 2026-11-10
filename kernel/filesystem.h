@@ -42,7 +42,7 @@ __attribute__((noinline,optnone)) static int fs_mount(void) {
     }
     if(type==3u) { if(off || size || sum || cap) return 0; }
     else if(off<data || size>cap || !storage_range(off,cap,words) ||
-            (type==1u && (size<16u || cap!=size)) || (type==2u && (!cap || cap>4096u))) return 0;
+            (type==1u && (size<16u || cap!=size)) || (type==2u && (!cap || cap>65536u))) return 0;
     aurora_word_t len=0u;
     while(len<32u) {
       aurora_word_t c=storage_read(at+4u+len); if(!c) break;
@@ -158,7 +158,12 @@ static aurora_word_t fs_allocate(aurora_word_t cap) {
     candidate=next;
   } return 0u;
 }
-static aurora_status_t fs_create(const aurora_word_t *path,aurora_word_t type) {
+/* Create-only publication. Code is a validated user span; generated AEXE has
+ * one fixed UROM segment. Write/read-check payload before publishing its type.
+ * No compaction and no overwrite of an existing path, including the caller. */
+__attribute__((noinline)) static aurora_status_t
+fs_create_content(const aurora_word_t *path,aurora_word_t type,
+                  aurora_word_t code,aurora_word_t code_words) {
   if(!fs_words || fs_version!=2u) return AURORA_EPERM;
   aurora_word_t split=0u,n=0u,parent_path[128]; kernel_file p;
   while(n<127u && path[n]) { parent_path[n]=path[n]; if(path[n]=='/') split=n+1u; ++n; }
@@ -168,20 +173,46 @@ static aurora_status_t fs_create(const aurora_word_t *path,aurora_word_t type) {
   if(fs_sibling(p.id,path+split)) return AURORA_EEXIST;
   aurora_word_t id=1u; for(;id<=fs_count;++id) if(!storage_read(fs_at(id))) break;
   if(id>64u || !storage_range(fs_directory,id*fs_entry_words,fs_data)) return AURORA_ENOSPC;
-  aurora_word_t cap=type==2u?2048u:0u, at=fs_at(id), off=cap?fs_allocate(cap):0u;
+  aurora_word_t cap=type==1u?22u+code_words:(type==2u?2048u:0u);
+  aurora_word_t at=fs_at(id), off=cap?fs_allocate(cap):0u, sum=0u;
   if(cap && !off) return AURORA_ENOSPC;
+  if(type==1u) {
+    for(aurora_word_t j=0u;j<cap;++j) {
+      aurora_word_t value=0u;
+      if(j>=22u) value=aurora.Read(code+j-22u);
+      else if(j==0u) value=0x41455845u;
+      else if(j==1u || j==7u || j==10u || j==20u) value=1u;
+      else if(j==2u || j==8u) value=16u;
+      else if(j==3u) value=cap;
+      else if(j==4u || j==16u) value=AURORA_UROM_BEGIN;
+      else if(j==5u) value=3u;
+      else if(j==6u) value=2u;
+      else if(j==9u) value=6u;
+      else if(j==17u) value=22u;
+      else if(j==18u || j==19u) value=code_words;
+      if(!fs_store(off+j,value)) return AURORA_EIO;
+      sum+=value;
+    }
+  }
   if(off+cap>fs_words) { if(!fs_store(3u,off+cap)) return AURORA_EIO; fs_words=off+cap; }
   for(aurora_word_t j=0;j<fs_entry_words;++j) if(!fs_store(at+j,0u)) return AURORA_EIO;
   if(!fs_store(at+1u,cap?off:0u)||!fs_store(at+36u,p.id)||!fs_store(at+37u,cap)) return AURORA_EIO;
+  if(type==1u && (!fs_store(at+2u,cap)||!fs_store(at+3u,sum))) return AURORA_EIO;
   for(aurora_word_t j=0;path[split+j];++j) if(!fs_store(at+4u+j,path[split+j])) return AURORA_EIO;
   if(!fs_store(at,type)) return AURORA_EIO;
   if(id>fs_count) { if(!fs_store(4u,id)) return AURORA_EIO; fs_count=id; }
-  return AURORA_OK;
+  return (aurora_status_t)id;
+}
+__attribute__((noinline,optnone)) static aurora_status_t
+fs_create(const aurora_word_t *path,aurora_word_t type) {
+  aurora_status_t result=fs_create_content(path,type,0u,0u);
+  return result<0?result:AURORA_OK;
 }
 static aurora_status_t fs_remove(const kernel_file *f) {
   if(!fs_words || fs_version!=2u || !f->id) return AURORA_EPERM;
   /* Do not recycle a live user's ID for a different file behind its back. */
-  if(process_table[PROCESS_USER].valid && user_file_refs[f->id]) return AURORA_EBUSY;
+  for(aurora_word_t pid=1u;pid<PROCESS_COUNT;++pid)
+    if(process_table[pid].valid && process_table[pid].file_refs[f->id]) return AURORA_EBUSY;
   kernel_file child; for(aurora_word_t id=1;id<=fs_count;++id)
     if(fs_get(id,&child)&&child.parent==f->id) return AURORA_EBUSY;
   return fs_store(fs_at(f->id),0u)?AURORA_OK:AURORA_EIO;

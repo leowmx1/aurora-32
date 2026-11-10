@@ -46,7 +46,7 @@ __attribute__((noreturn)) void _start(void) {
   aurora.SetUpStackPointer();
   invalid(0); invalid(0x01000000u); invalid(0x09000000u);
   invalid(0x82000000u); invalid(0xfffffffcu);
-  invalid(0x80fffff9u); invalid(0x81fffff9u);
+  invalid(0x803ffff9u); invalid(0x813ffff9u);
   check(aurora_syscall(28, (aurora_word_t)&f, 0, 0) == AURORA_EINVAL, 11);
   check(aurora_syscall(28, (aurora_word_t)&f, 3, 0) == AURORA_EINVAL, 12);
   check(aurora_syscall(28, (aurora_word_t)&f, 1, 1) == AURORA_EINVAL, 13);
@@ -58,14 +58,14 @@ __attribute__((noreturn)) void _start(void) {
   check(system.graphics.Bitmap(&tile) == AURORA_EINVAL, 16);
   tile.height = 1; tile.x = 0xffffffffu;
   check(system.graphics.Bitmap(&tile) == AURORA_EINVAL, 17);
-  tile.x = 159; tile.width = 2;
+  tile.x = 479; tile.width = 2;
   check(system.graphics.Bitmap(&tile) == AURORA_EINVAL, 18);
-  tile.x = 0; tile.y = 99; tile.height = 2;
+  tile.x = 0; tile.y = 239; tile.height = 2;
   check(system.graphics.Bitmap(&tile) == AURORA_EINVAL, 19);
   tile.y = 0; tile.width = 0xffffffffu;
   check(system.graphics.Bitmap(&tile) == AURORA_EINVAL, 20);
   check(system.io.Subscribe(key) == 0, 21);
-  check(system.graphics.FillRect(0,0,160,100,0) == 0, 22); wait_idle();
+  check(system.graphics.FillRect(0,0,480,240,0) == 0, 22); wait_idle();
   check(system.graphics.FillRect(96,12,12,24,3) == 0, 23); wait_idle();
   check(system.graphics.FillRect(108,12,12,24,5) == 0, 24); wait_idle();
   check(system.graphics.Bitmap(&f) == 0, 25); wait_idle();
@@ -90,12 +90,12 @@ __attribute__((noreturn)) void _start(void) {
   /* Exact end-of-bank packets: eight words ending at the last URAM word. */
   /* Globals/strings are allocated downward from URAM's end: preserve them. */
   for (aurora_word_t i = 0; i < 8u; ++i)
-    saved_tail[i] = aurora.Read(0x81fffff8u + i);
+    saved_tail[i] = aurora.Read(0x813ffff8u + i);
   for (aurora_word_t i = 0; i < 8u; ++i)
-    aurora.Write(0x81fffff8u + i, ((aurora_word_t *)&f)[i]);
-  check(aurora_syscall(28, 0x81fffff8u, 1, 0) == 0, 27); wait_idle();
+    aurora.Write(0x813ffff8u + i, ((aurora_word_t *)&f)[i]);
+  check(aurora_syscall(28, 0x813ffff8u, 1, 0) == 0, 27); wait_idle();
   for (aurora_word_t i = 0; i < 8u; ++i)
-    aurora.Write(0x81fffff8u + i, saved_tail[i]);
+    aurora.Write(0x813ffff8u + i, saved_tail[i]);
   system.io.PutString("BITMAP CONTRACT PASS\n");
   system.Exit(0);
   for (;;) system.Yield();

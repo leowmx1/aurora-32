@@ -7,7 +7,7 @@ from collections import deque
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests/graphics-syscall'))
 from run_graphics import GraphicsCPU
-from font_reference import glyph_pixels, font_commands
+from font_reference import glyph_pixels, font_commands, logical_pixels
 from run_events import CheckedCPU
 sys.path.insert(0, str(ROOT / 'tests/midi-syscall'))
 from device import MidiDevice
@@ -85,6 +85,7 @@ class SnakeCPU(MidiDevice, GraphicsCPU):
 
 
 def board(screen):
+    screen=logical_pixels(screen)
     result = {}
     for y in range(8):
         for x in range(12):
@@ -105,13 +106,8 @@ FONT = [[7,5,5,5,7], [2,6,2,2,7], [7,1,7,4,7], [7,1,7,1,7], [5,5,7,1,1],
 
 
 def number(screen, x, value):
-    for i, digit in enumerate(f'{value:03d}'):
-        for row, bits in enumerate(FONT[int(digit)]):
-            for col in range(3):
-                expected = BODY if bits & (4 >> col) else BACKGROUND
-                for dy in range(2):
-                    for dx in range(2):
-                        assert screen[(2+row*2+dy)*160+x+i*8+col*2+dx] == expected, (value,i,row,col)
+    for i,digit in enumerate(f'{value:03d}'):
+        glyph_pixels(screen,x+i*8,2,digit,BODY,BACKGROUND)
 
 
 def controls():
@@ -136,7 +132,11 @@ def controls():
     cpu.press(' '); cpu.next_frame()  # start, no immediate move
     screen, commands = cpu.next_frame()
     assert board(screen)[7,4] == 'head'
-    assert len(commands) == 3 and all(c[2:4] == (8,8) for c in commands), commands
+    if initial[7,4]=='food':
+        assert len(commands)==5, commands  # new food tile/center + 2 cells + score
+        number(screen,28,1)
+    else:
+        assert len(commands)==3 and all(19<=c[2]<=20 and 19<=c[3]<=20 for c in commands), commands
     cpu.press('w'); screen, commands = cpu.next_frame()
     assert board(screen)[7,3] == 'head'
     cpu.press('p'); screen, _ = cpu.next_frame()
@@ -165,7 +165,7 @@ def controls():
     cpu.press('q'); cpu.until(lambda: cpu.halted)
     assert 'Quit.' in cpu.output and 'exited with code 0.' in cpu.output
     assert cpu.restores >= 22 and cpu.ticks > 0 and not cpu.snapshots
-    assert sum(c[:4] == (0,0,160,100) for c in cpu.exit_commands) == 1
+    assert sum(c[:4] == (0,0,480,240) for c in cpu.exit_commands) == 1
     assert not cpu.midi_active
     font_commands(cpu, BACKGROUND, {BODY})
     print(f'PASS BIN controls/HUD: dirty move=3 rectangles, turns, pause, speed 10..150, quit; {cpu.restores} context restores')
@@ -208,7 +208,7 @@ def food_and_wall(pause_on_food=False, muted=False):
     assert list(board(screen).values()).count('food') == 1
     assert cpu.output == silent_output, 'eating food printed to terminal'
     if pause_on_food:
-        cpu.until(lambda: cpu.screen[14*160+18] == HEAD)
+        cpu.until(lambda: cpu.screen[(14*12//5)*480+48+18*12//5] == HEAD)
         cpu.until(lambda: not cpu.midi_active)
         cpu.press('q')
     cpu.until(lambda: cpu.halted)

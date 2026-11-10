@@ -5,7 +5,11 @@
     "byteOrder": "big",
     "wordBytes": 5,
     "wordCount": 4096,
-    "data": "eJzt17FOwzAUheHjKEJBYkgRAwNDhBgYGBgYGEyVkYGBx2E0TDwGD8LD0ZaoNFGpSHJAAf6lktPo07Gvbd0oqq50k1Qr6lEhStK4Hzw8PLzf6WWZ01PMtRhKdYh6cnkxUwrzYMm3MUzDku7yhiRte6n2rp/ZU2mt7/TPB96f9lTuWb3c7F2W1vs5XJm9wjzfA7N3bfZKs3dk9o7N3onZq8zemdk7N3sX7vtFudP7GC5u1lSO91Lr2SC0059qWKod+Uai2/srRVXV8t+keVDWY+Zb1m8U2qmvwrvSNG3j6qH4so5WKOXNK1W1yve1uC3vdfVsFNrOV2/Od/FKmrWm/9x3/9Vjtt4WrzJ7o6h/7zWbq/lqyxxe57z1/0jq3n+Fd/1OzfUozfmq3F9fld9W39Q7bre+zvmGqENzfa3nDW9i3q35e/DO7D2YvXuzN/X64uHhfeoV6/5v39IfFMv+oHD2f9NePzw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PLyf82YTz4eHh4dn894AVmuJBA=="
+    "data": "eJzt17FOwzAUheHrKEKJxOAiBgYGCzEwMDAwMJgqIwMDj8PoMvEYPAgPR1ui0kRtReKDFOBfKjmNPh372taNRWuC3SdrLNrCXDQzy/vBw8PD+51eUSg9i6Uth2aNi/ai8mJhyc2dJN/WMI1Lesgbk7TrpUa7fmLPvLS+0z8feH/aM38k9Uqxd+Ol97O7FXuVeL7HYu9O7Hmxdyr2zsTeudgLYu9S7F2JvWv1/WKl0vsaLm/W5PO91Hk2Cu31pzYu1YF8meju/sqihbD6N9ncWTFg5jvWLwvt1dfcp9I2bXn1sPi2iVZZKttXQljn+17cjve+fpaFdvM12/NdvpJmnem/Dt1/Tc7W2+EFsZdF/Xuv3VztV1uh8HrnbfhHUv/+q7TrdyGuhxfnC6W+vuZ/rL5pcNx+fZXzddFOxPWVnje8iXkP4u/BR7H3LPaexN7U64uHh7fXqzb9Xy3pD6pVf1Dp+r9a3P/V4n6jFveTNf0LHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7eXm828Xx4eHh4Mu8DY1iJaA==",
+    "checksum": {
+      "algorithm": "sha256",
+      "value": "d52a6b73ec4a35c58258cae1fd940c52c02f0af9c89786542f0377dc858d78b2"
+    }
   },
   "hexFile": "micro_code.hex",
   "binFile": null,
@@ -634,6 +638,30 @@
         "description": "控制用户栈Rw ← M[SP]，SP ← SP-1"
       },
       {
+        "opcode": 98,
+        "mnemonic": "LUSP",
+        "format": "R",
+        "description": "加载USP"
+      },
+      {
+        "opcode": 99,
+        "mnemonic": "LUFP",
+        "format": "R",
+        "description": "加载UFP"
+      },
+      {
+        "opcode": 100,
+        "mnemonic": "OUSP",
+        "format": "R",
+        "description": "读取USP"
+      },
+      {
+        "opcode": 101,
+        "mnemonic": "OUFP",
+        "format": "R",
+        "description": "读取UFP"
+      },
+      {
         "opcode": 240,
         "mnemonic": "HALT",
         "format": "R",
@@ -702,5 +730,9 @@
       "autoSaveHex": true,
       "customasmRuleHeader": "#bankdef global\n{\n    bits = 32\n    addr = 0x00000000\n    size = 0x00FFFFFF\n    outp = 0\n\tlabelalign = 32\n}\n#bank global\n#addr 0x00000000\n#subruledef src\n{\n\trom[{inner_addr: u24}] => 0x00 @ inner_addr`24\n    ram[{inner_addr: u24}] => 0x01 @ inner_addr`24\n    sp[{inner_addr: u24}] => 0x02 @ inner_addr`24\n\tivt[{inner_addr: u24}] => 0x03 @ inner_addr`24\n\tkeyboard => 0x04000000\n\tterminal => 0x05000000\n\ttelnet => 0x06000000\n}\n#subruledef cond\n{\n\tc => 0x1\n    z => 0x2\n\tb => 0x3\n    nc => 0x4\n\tnz => 0x5\n\tnb => 0x6\n}\n#ruledef\n{\n\tNOP => 0x00000000\n\n\tMOV r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x10\n    ILD r{reg_w: u4}, r{reg_b: u4} => 0x0000 @ reg_b`4 @ reg_w`4 @ 0x11\n\tIST r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x012\n\tLDR r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x13 @ addr`32\n\tSTR r{reg_a: u4}, {addr: src} => 0x000 @ reg_a`4 @ 0x00 @ 0x14 @ addr`32\n\tLDI r{reg_w: u4}, {value: u32} => 0x00000 @ reg_w`4 @ 0x15 @ value`32\n\tLDA r{reg_w: u4}, {addr: src} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDC r{reg_w: u4}, {addr: u32} => 0x00000 @ reg_w`4 @ 0x16 @ addr`32\n\tLDO r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x17\n\n\tADD r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x20\n\tSUB r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x21\n\tINC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x22\n\tDEC r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x23\n\tMUL r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x24\n\tDIV r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x25\n\tREM r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x26\n\tSFT r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x27\n\tAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x28\n\tNAND r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x29\n\tOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2A\n\tNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2B\n\tXOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2C\n\tXNOR r{reg_a: u4}, r{reg_b: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ reg_w`4 @ 0x2D\n\tNOT r{reg_a: u4}, r{reg_w: u4} => 0x000 @ reg_a`4 @ 0x0 @ reg_w`4 @ 0x2E\n\tCMP r{reg_a: u4}, r{reg_b: u4} => 0x000 @ reg_a`4 @ reg_b`4 @ 0x02F\n\n\tJMP {addr: u32} => 0x00000030 @ addr`32\n\tJCC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00031 @ addr`32\n\tJPR r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0032\n\tJRC {cond_c: cond}, r{reg_a: u4} => 0x00 @ cond_c`4 @ reg_a`4 @ 0x0033\n\tCALL {addr: u32} => 0x000000 @ 0x34 @ addr`32\n\tCAC {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x000 @ 0x35 @ addr`32\n\tRET => 0x00000036\n\tINT {addr: u32} => 0x00000037 @ addr`32\n\tCINT {cond_c: cond}, {addr: u32} => 0x00 @ cond_c`4 @ 0x00038 @ addr`32\n\tIRET => 0x00000039\n\tEI => 0x0000003A\n\tDI => 0x0000003B\n\n\tPUSH r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0040\n\tPOP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x41\n\tLSP r{reg_a: u4} => 0x000 @ reg_a`4 @ 0x0042\n    OSP r{reg_w: u4} => 0x00000 @ reg_w`4 @ 0x43\n\n\tHALT => 0x000000F0\n}\n; customasm <file_path> -f list,base:16,group:8,between:\" \",before:\"v2.0 raw\\n\",after:\"\" -o <output_path>"
     }
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "value": "b2b6243c472d61b805c8ced6c0a78b6a1a4e8424e95e68f9d4ea28b5593797f8"
   }
 }

@@ -76,10 +76,20 @@ enum {
   AURORA_SYSCALL_FS_READ = 32, /* r1=aurora_fs_read_request pointer */
   AURORA_SYSCALL_FS_SAVE = 33, /* r1=ID, r2=word text, r3=length */
   AURORA_SYSCALL_FS_INFO = 34, /* r1=ID, r2=info output */
+  /* Create-only executable: r1=path, r2=raw UROM code words, r3=count 1..131072.
+   * Kernel adds AEXE header and checksum. Result=new ID, existing path=EEXIST. */
+  AURORA_SYSCALL_FS_INSTALL = 35,
+  /* r1=r2=r3=0. Detach this foreground process without changing its slot.
+   * EBUSY: background slot occupied or inside callback/deferred region. */
+  AURORA_SYSCALL_BACKGROUND = 36,
+  /* 16-bit halves: r1=x+65536*y, r2=w+65536*h, r3=color. */
+  AURORA_SYSCALL_GRAPHICS_RECT16 = 37,
+  /* Eight words: x,y,w,h,fg,bg,data pointer,word count. r2=mode, r3=0. */
+  AURORA_SYSCALL_GRAPHICS_IMAGE = 38,
 };
 
-#define AURORA_GRAPHICS_WIDTH 160u
-#define AURORA_GRAPHICS_HEIGHT 100u
+#define AURORA_GRAPHICS_WIDTH 480u
+#define AURORA_GRAPHICS_HEIGHT 240u
 
 /* Use static/global storage, never a user-stack local descriptor.
  * Row-major, bit0=top-left; width*height <=64. No scaling or tiling. */
@@ -88,6 +98,16 @@ typedef struct aurora_graphics_bitmap {
   aurora_word_t color, background;
   aurora_word_t data_low, data_high;
 } aurora_graphics_bitmap;
+
+/* Descriptor AND data must be static/global UROM/URAM, not user stack.
+ * Row-major bit0 first, no row padding. words must equal ceil(width*height/32).
+ * Maximum full-screen image: 3600 words. Consumed before syscall returns. */
+typedef struct aurora_graphics_image {
+  aurora_word_t x, y, width, height;
+  aurora_word_t color, background;
+  const aurora_word_t *data;
+  aurora_word_t words;
+} aurora_graphics_image;
 
 #define AURORA_CONSOLE_WRITE_MAX 64u
 

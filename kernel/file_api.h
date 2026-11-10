@@ -10,7 +10,7 @@ static aurora_status_t kernel_fs_open(aurora_word_t address) {
   aurora_word_t path[128]; kernel_file f;
   for(aurora_word_t i=0;i<128u;++i) {
     if(address+i<address || !fs_user_span(address+i,1u,0)) return AURORA_EFAULT;
-    path[i]=aurora.Read(address+i);
+    path[i]=aurora.Read(user_physical(address+i));
     if(!path[i]) {
       if(!fs_open(path,&f)) return AURORA_ENOENT;
       user_file_refs[f.id]=1u; return (aurora_status_t)f.id;
@@ -21,6 +21,7 @@ static aurora_status_t kernel_fs_info(aurora_word_t id,aurora_word_t out) {
   if(!fs_user_span(out,37u,1)) return AURORA_EFAULT;
   kernel_file f; if(!fs_get(id,&f)) return AURORA_ENOENT;
   user_file_refs[id]=1u;
+  out=user_physical(out);
   aurora.Write(out,id); aurora.Write(out+1u,f.type); aurora.Write(out+2u,f.words);
   aurora.Write(out+3u,f.capacity); aurora.Write(out+4u,f.parent);
   for(aurora_word_t j=0;j<32u;++j) aurora.Write(out+5u+j,id?storage_read(fs_at(id)+4u+j):(j?0u:'/'));
@@ -36,11 +37,13 @@ static aurora_status_t kernel_fs_list(aurora_word_t parent,aurora_word_t ordinal
 }
 static aurora_status_t kernel_fs_read(aurora_word_t request) {
   if(!fs_user_span(request,4u,0)) return AURORA_EFAULT;
+  request=user_physical(request);
   aurora_word_t id=aurora.Read(request), off=aurora.Read(request+1u);
   aurora_word_t out=aurora.Read(request+2u), count=aurora.Read(request+3u);
   kernel_file f; if(!fs_get(id,&f)) return AURORA_ENOENT;
   if(f.type==3u || count>64u || off>f.words) return AURORA_EINVAL;
   if(!fs_user_span(out,count,1)) return AURORA_EFAULT;
+  out=user_physical(out);
   user_file_refs[id]=1u;
   if(count>f.words-off) count=f.words-off;
   for(aurora_word_t j=0;j<count;++j) aurora.Write(out+j,fs_read(&f,off+j));
@@ -49,8 +52,9 @@ static aurora_status_t kernel_fs_read(aurora_word_t request) {
 static aurora_status_t kernel_fs_save(aurora_word_t id,aurora_word_t data,aurora_word_t length) {
   kernel_file f; if(!fs_get(id,&f)) return AURORA_ENOENT;
   if(fs_version!=2u || f.type!=2u) return AURORA_EPERM;
-  if(length>f.capacity || length>4096u) return AURORA_ENOSPC;
+  if(length>f.capacity || length>65536u) return AURORA_ENOSPC;
   if(!fs_user_span(data,length,0)) return AURORA_EFAULT;
+  data=user_physical(data);
   user_file_refs[id]=1u;
   aurora_word_t sum=0u;
   for(aurora_word_t j=0;j<length;++j) {
@@ -61,5 +65,24 @@ static aurora_status_t kernel_fs_save(aurora_word_t id,aurora_word_t data,aurora
   for(aurora_word_t j=0;j<length;++j) if(!fs_store(f.offset+j,aurora.Read(data+j))) return AURORA_EIO;
   if(!fs_store(fs_at(id)+3u,sum)||!fs_store(fs_at(id)+2u,length)) return AURORA_EIO;
   return length;
+}
+/* Synchronous, bounded create-only executable install. No user-controlled
+ * destination addresses or segment headers; the loader validates on launch.
+ * Native instruction safety remains enforced by the hardware user mode. */
+__attribute__((noinline)) static aurora_status_t
+kernel_fs_install(aurora_word_t address,aurora_word_t code,aurora_word_t count) {
+  if(!count || count>131072u) return AURORA_EINVAL;
+  if(!fs_user_span(code,count,0)) return AURORA_EFAULT;
+  aurora_word_t path[128];
+  for(aurora_word_t i=0;i<128u;++i) {
+    if(address+i<address || !fs_user_span(address+i,1u,0)) return AURORA_EFAULT;
+    path[i]=aurora.Read(user_physical(address+i));
+    if(!path[i]) {
+      aurora_status_t id=fs_create_content(path,1u,user_physical(code),count);
+      if(id>0) user_file_refs[(aurora_word_t)id]=1u;
+      return id;
+    }
+  }
+  return AURORA_EINVAL;
 }
 #endif

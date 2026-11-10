@@ -26,7 +26,7 @@ __attribute__((noreturn)) void _start(void) {
   check(system.midi.Sequence(background, 4, 3) == AURORA_EINVAL, 3);
   check(aurora_syscall(26, 0x82000000u, 1, 0) == AURORA_EFAULT, 4);
   check(aurora_syscall(26, 0xfffffffcu, 2, 0) == AURORA_EFAULT, 5);
-  check(aurora_syscall(26, 0x81fffffeu, 1, 0) == AURORA_EFAULT, 6);
+  check(aurora_syscall(26, 0x813ffffeu, 1, 0) == AURORA_EFAULT, 6);
   for (int i = 0; i < 64; ++i) {
     large[i*4] = 128; large[i*4+1] = 0; large[i*4+2] = 1; large[i*4+3] = 0;
   }

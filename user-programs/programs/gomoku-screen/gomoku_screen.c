@@ -21,49 +21,51 @@ static int shown_player, shown_message;
 static int winning_start, winning_step;
 /* All game state after initialization is owned by non-nesting key callbacks. */
 enum { NORMAL, BAD, OCCUPIED, WIN, DRAW, QUIT };
-/* Original 3x5 font, expanded 2x offline to 6x10 (60 bits).
- * Bit0 is top-left; each glyph is one opaque bitmap, including its background. */
-static const aurora_word_t font_bitmap[36][2] = {
-  {0xf3cf3fffu, 0x0fffcf3cu}, /* 0 */
-  {0x0c3cf30cu, 0x0fff30c3u}, /* 1 */
-  {0xffc30fffu, 0x0fff0c3fu}, /* 2 */
-  {0xffc30fffu, 0x0fffc30fu}, /* 3 */
-  {0xffcf3cf3u, 0x0c30c30fu}, /* 4 */
-  {0xff0c3fffu, 0x0fffc30fu}, /* 5 */
-  {0xff0c3fffu, 0x0fffcf3fu}, /* 6 */
-  {0x30c30fffu, 0x0c30c30cu}, /* 7 */
-  {0xffcf3fffu, 0x0fffcf3fu}, /* 8 */
-  {0xffcf3fffu, 0x0fffc30fu}, /* 9 */
-  {0xffcf330cu, 0x0cf3cf3fu}, /* A */
-  {0xcfcf33cfu, 0x03cfcf33u}, /* B */
-  {0xc30c3fffu, 0x0fff0c30u}, /* C */
-  {0xf3cf33cfu, 0x03cfcf3cu}, /* D */
-  {0xcf0c3fffu, 0x0fff0c33u}, /* E */
-  {0xcf0c3fffu, 0x00c30c33u}, /* F */
-  {0xf30c3fffu, 0x0fffcf3cu}, /* G */
-  {0xffcf3cf3u, 0x0cf3cf3fu}, /* H */
-  {0x0c30cfffu, 0x0fff30c3u}, /* I */
-  {0x30c30c30u, 0x0fffcf3cu}, /* J */
-  {0xcfcf3cf3u, 0x0cf3cf33u}, /* K */
-  {0xc30c30c3u, 0x0fff0c30u}, /* L */
-  {0xfffffcf3u, 0x0cf3cf3fu}, /* M */
-  {0xfffffcf3u, 0x0cf3ffffu}, /* N */
-  {0xf3cf3fffu, 0x0fffcf3cu}, /* O */
-  {0xffcf3fffu, 0x00c30c3fu}, /* P */
-  {0xf3cf3fffu, 0x0c30fffcu}, /* Q */
-  {0xcfcf33cfu, 0x0cf3cf33u}, /* R */
-  {0xff0c3fffu, 0x0fffc30fu}, /* S */
-  {0x0c30cfffu, 0x030c30c3u}, /* T */
-  {0xf3cf3cf3u, 0x0fffcf3cu}, /* U */
-  {0xf3cf3cf3u, 0x030ccf3cu}, /* V */
-  {0xffcf3cf3u, 0x0cf3ffffu}, /* W */
-  {0x0ccf3cf3u, 0x0cf3cf33u}, /* X */
-  {0x0ccf3cf3u, 0x030c30c3u}, /* Y */
-  {0x0cc30fffu, 0x0fff0c33u}, /* Z */
+/* Regular thin font rasterized at 12x16; no runtime scaling; bit0 is top-left. */
+static const aurora_word_t font_bitmap[36][6] = {
+  {0xf0000000u,0xc30c1980u,0x3643c430u,0x0c30c33cu,0x00f01983u,0x00000000u}, /* 0 */
+  {0x60000000u,0x006c0780u,0x06006006u,0x60060060u,0x03fc0600u,0x00000000u}, /* 1 */
+  {0xf8000000u,0x01801880u,0x18018018u,0x300600c0u,0x03fc0180u,0x00000000u}, /* 2 */
+  {0xf8000000u,0x01801800u,0x0f008018u,0x00300180u,0x00fc1803u,0x00000000u}, /* 3 */
+  {0xc0000000u,0x01a01e01u,0x1981981bu,0xfe18418cu,0x01801807u,0x00000000u}, /* 4 */
+  {0xf8000000u,0x80080081u,0x1800f800u,0x00300300u,0x007c1801u,0x00000000u}, /* 5 */
+  {0xe0000000u,0xc0180301u,0x31c1fc00u,0x0c30c30cu,0x00f01983u,0x00000000u}, /* 6 */
+  {0xfc000000u,0x01803003u,0x0c00c018u,0x30060060u,0x00180300u,0x00000000u}, /* 7 */
+  {0xf0000000u,0xc30c1980u,0x0f019810u,0x0c30c198u,0x00f838c3u,0x00000000u}, /* 8 */
+  {0xf0000000u,0xc10c1880u,0x38c30c30u,0x80100378u,0x00780c01u,0x00000000u}, /* 9 */
+  {0x60000000u,0x00d00f00u,0x18819809u,0x043fc108u,0x06062043u,0x00000000u}, /* A */
+  {0xfc000000u,0xc30c18c0u,0x0fc18c10u,0x0c30c38cu,0x00fc18c3u,0x00000000u}, /* B */
+  {0xe0000000u,0xc00c2181u,0x00c00c00u,0x0c00c00cu,0x01f02180u,0x00000000u}, /* C */
+  {0xfc000000u,0xc30c18c0u,0x20c30c30u,0x0c30c30cu,0x007c18c3u,0x00000000u}, /* D */
+  {0xf8000000u,0x80080081u,0x1f800800u,0x08008008u,0x01f80080u,0x00000000u}, /* E */
+  {0xf8000000u,0x80080081u,0x1f800800u,0x08008008u,0x00080080u,0x00000000u}, /* F */
+  {0xf0000000u,0xc00c2181u,0x3c400400u,0x0c30c304u,0x03f03183u,0x00000000u}, /* G */
+  {0x0c000000u,0xc30c30c3u,0x3fc30c30u,0x0c30c30cu,0x030c30c3u,0x00000000u}, /* H */
+  {0xfc000000u,0x00600601u,0x06006006u,0x60060060u,0x01fc0600u,0x00000000u}, /* I */
+  {0xf8000000u,0x01801801u,0x18018018u,0x80180180u,0x00780c81u,0x00000000u}, /* J */
+  {0x0c000000u,0xc0cc18c3u,0x03c02c06u,0xcc06c02cu,0x030c18c0u,0x00000000u}, /* K */
+  {0x18000000u,0x80180180u,0x01801801u,0x18018018u,0x03f80180u,0x00000000u}, /* L */
+  {0x0c000000u,0x429c38c3u,0x26425429u,0x04204264u,0x06062062u,0x00000000u}, /* M */
+  {0x0c000000u,0xc31c31c3u,0x36c32c33u,0x8c34c34cu,0x030c38c3u,0x00000000u}, /* N */
+  {0xf0000000u,0x430c1980u,0x20620430u,0x0c304206u,0x00f01983u,0x00000000u}, /* O */
+  {0xfc000000u,0xc30c18c0u,0x18c30c30u,0x0c00c0fcu,0x000c00c0u,0x00000000u}, /* P */
+  {0xf0000000u,0x430c1980u,0x20620430u,0x0c304204u,0x00f019c3u,0x3c044006u}, /* Q */
+  {0xfc000000u,0xc10c18c0u,0x0fc18c10u,0x8c18c0ccu,0x030c30c1u,0x00000000u}, /* R */
+  {0xf0000000u,0xc00c1180u,0x0f003800u,0x00300180u,0x00f81843u,0x00000000u}, /* S */
+  {0xfc000000u,0x00600603u,0x06006006u,0x60060060u,0x00600600u,0x00000000u}, /* T */
+  {0x0c000000u,0xc30c30c3u,0x30c30c30u,0x0c30c30cu,0x00f01883u,0x00000000u}, /* U */
+  {0x06000000u,0xc30c2066u,0x19810830u,0xf0090198u,0x00600f00u,0x00000000u}, /* V */
+  {0x06000000u,0x42042066u,0x26426420u,0x942d4264u,0x038c39c2u,0x00000000u}, /* W */
+  {0x0c000000u,0x019810c3u,0x0600700fu,0x981d80f0u,0x030e30c1u,0x00000000u}, /* X */
+  {0x06000000u,0x810c30c6u,0x0f009019u,0x60060060u,0x00600600u,0x00000000u}, /* Y */
+  {0xfc000000u,0x01801003u,0x0600400cu,0x18030030u,0x03fc0080u,0x00000000u}, /* Z */
 };
 /* Single renderer owns this packet; callbacks do not nest. */
-static aurora_graphics_bitmap glyph_packet;
-static aurora_graphics_bitmap piece_packet;
+static aurora_graphics_image glyph_packet;
+static aurora_graphics_image piece_packet;
+static const aurora_word_t disk[18] = {
+  0xc0007e00u,0xffe003ffu,0x0ffff007u,0xfc1ffff8u,0xfffe3fffu,0x7ffffe7fu,0xff7ffffeu,0xffffffffu,0xffffffffu,0xffffffffu,0xffffffffu,0x7ffffeffu,0xfe7ffffeu,0xfffc7fffu,0x1ffff83fu,0xe00ffff0u,0xffc007ffu,0x007e0003u
+};
 
 static void fail(const char *message) {
   system.io.PutString(message);
@@ -83,6 +85,8 @@ static void wait_graphics(void) {
 
 static void fill(int x, int y, int w, int h, aurora_word_t color) {
   wait_graphics();
+  if(x==0 && y==0 && w==160 && h==100) { w=480; h=240; }
+  else { w=(x+w)*12/5-x*12/5; h=(y+h)*12/5-y*12/5; x=48+x*12/5; y=y*12/5; }
   if (system.graphics.FillRect(x, y, w, h, color) != AURORA_OK)
     fail("Graphics fill failed.\n");
 }
@@ -91,12 +95,11 @@ __attribute__((noinline, optnone)) static void glyph(int x, int y, int c,
                                                        aurora_word_t color) {
   int index = c >= 'A' ? c - 'A' + 10 : c - '0';
   wait_graphics();
-  glyph_packet.x = x; glyph_packet.y = y;
-  glyph_packet.width = 6; glyph_packet.height = 10;
+  glyph_packet.x = 49+x*12/5; glyph_packet.y = 2+y*12/5;
+  glyph_packet.width=12; glyph_packet.height=16;
   glyph_packet.color = color; glyph_packet.background = BACKGROUND;
-  glyph_packet.data_low = font_bitmap[index][0];
-  glyph_packet.data_high = font_bitmap[index][1];
-  if (system.graphics.Bitmap(&glyph_packet) != AURORA_OK)
+  glyph_packet.data=font_bitmap[index]; glyph_packet.words=6u;
+  if (system.graphics.Image(&glyph_packet) != AURORA_OK)
     fail("Graphics bitmap failed.\n");
 }
 
@@ -110,21 +113,14 @@ __attribute__((noinline, optnone)) static void text(int x, int y, const char *s,
 }
 
 __attribute__((noinline)) static void draw_piece(int row, int col, int player) {
-  int x = BX + col * TILE + 3, y = BY + row * TILE + 3;
-  aurora_word_t color = player == 1 ? BLACK : WHITE;
-  /* Same 80-pixel radius-five disk, split into two 10x5 masks (<64 bits).
-   * Transparent zero bits preserve the corners. No runtime mask expansion. */
   wait_graphics();
-  piece_packet.x = x; piece_packet.y = y;
-  piece_packet.width = 10; piece_packet.height = 5;
-  piece_packet.color = color; piece_packet.background = BACKGROUND;
-  piece_packet.data_low = 0xdfe7f878u; piece_packet.data_high = 0x0003ffffu;
-  if (system.graphics.BitmapTransparent(&piece_packet) != AURORA_OK)
-    fail("Graphics piece failed.\n");
-  wait_graphics();
-  piece_packet.y = y + 5;
-  piece_packet.data_low = 0x9fefffffu; piece_packet.data_high = 0x0000787fu;
-  if (system.graphics.BitmapTransparent(&piece_packet) != AURORA_OK)
+  piece_packet.x = 48+(BX+col*TILE+3)*12/5;
+  piece_packet.y = (BY+row*TILE+3)*12/5;
+  piece_packet.width = piece_packet.height = 24;
+  piece_packet.color = player==1?BLACK:WHITE;
+  piece_packet.background = BACKGROUND;
+  piece_packet.data = disk; piece_packet.words = 18u;
+  if (system.graphics.ImageTransparent(&piece_packet)!=AURORA_OK)
     fail("Graphics piece failed.\n");
 }
 
@@ -146,7 +142,7 @@ static void clear_selection(void) {
 }
 
 __attribute__((noinline, optnone)) static void draw_status(int message) {
-  /* Normal move updates only the six-by-ten player digit, never the panel. */
+  /* Normal move updates only the 12x16 player digit, never the panel. */
   if (shown_player != current_player) {
     glyph(120, 8, '0' + current_player, current_player == 1 ? BLACK : WHITE);
     shown_player = current_player;
@@ -191,7 +187,7 @@ __attribute__((noinline, optnone)) static int has_winning_line(int player) {
 __attribute__((noinline, optnone)) static void mark_winning_line(void) {
   int index = winning_start;
   for (int i = 0; i < SIZE; ++i) {
-    /* Four-by-four center mark leaves a black/white rim, never touches grid. */
+    /* Logical 4x4 center mark leaves a black/white rim, never touches grid. */
     fill(BX + (index % SIZE) * TILE + 6,
          BY + (index / SIZE) * TILE + 6, 4, 4, RED);
     index += winning_step;

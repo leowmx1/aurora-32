@@ -21,16 +21,16 @@ c=ProfileCPU(); c.until(lambda:bool(c.output)); first=c.steps
 assert first<100,'first boot indication regressed'
 c.until(lambda:c.prompt_count==1); boot=c.steps
 assert 'BIOS startup:' in c.output and '3 seconds' not in c.output
-c.pending.extend('quickrun txt-viewer\r')
+c.pending.extend('quickrun editor\r')
 c.until(lambda:not c.kernel_mode and c.ie,limit=8000000); start=c.steps
-c.until(lambda:c.output.endswith('txt > '),limit=4000000); startup=c.steps-start
+c.until(lambda:c.output.endswith('editor > '),limit=4000000); startup=c.steps-start
 assert startup<103780,'viewer regressed against pre-optimization baseline'
 assert c.calls[6]==0 and 64 in c.batches,'help should use bounded Write batches'
 n=len(c.batches); editor(c,'open docs/welcome.txt','Welcome to Aurora-32!')
 assert c.batches[n:].count(64)>=3,'body lost 64-word batching'
 editor(c,'clear'); editor(c,'append bounded-prefix'); editor(c,'show','bounded-prefix\n')
 editor(c,'discard'); n=c.prompt_count; c.pending.extend('q\r'); c.until(lambda:c.prompt_count>n)
-c.run_program('txt-viewer','txt > ')
+c.run_program('editor','editor > ')
 editor(c,'show','Open a text file first.')
 print(f'PASS performance: first log {first} instructions (baseline 30026); boot prompt {boot}; viewer startup {startup} (baseline 103780)',flush=True)
 print('PASS viewer: poisoned unused RAM, batched help/filenames/body, restart does not expose old draft',flush=True)

@@ -13,7 +13,8 @@ static aurora_status_t kernel_console_write_words(aurora_word_t address,
 /* Validate the complete bounded span before producing any output. All
  * addresses here are CPU word addresses, not host byte addresses. */
 __attribute__((noinline, optnone)) static aurora_status_t
-kernel_console_write(aurora_word_t address, aurora_word_t count) {
+kernel_console_write(aurora_word_t address, aurora_word_t count,
+                     aurora_word_t discard) {
   if (count > AURORA_CONSOLE_WRITE_MAX)
     return AURORA_EINVAL;
   if (count == 0u)
@@ -26,7 +27,10 @@ kernel_console_write(aurora_word_t address, aurora_word_t count) {
   /* Do not cross from one user memory device to another. */
   if (address < AURORA_URAM_BEGIN && end >= AURORA_URAM_BEGIN)
     return AURORA_EFAULT;
-  return kernel_console_write_words(address, count);
+  /* A background sink accepts the complete valid span without device I/O
+   * or buffer reads. In particular, buffered callers still see full success. */
+  if (discard) return (aurora_status_t)count;
+  return kernel_console_write_words(user_physical(address), count);
 }
 
 /* Telnet has the same bounded user-buffer contract as console Write. */
@@ -38,6 +42,7 @@ kernel_telnet_write(aurora_word_t address, aurora_word_t count) {
   aurora_word_t end = address + count - 1u;
   if (end < address || !is_user_read_address(end)) return AURORA_EFAULT;
   if (address < AURORA_URAM_BEGIN && end >= AURORA_URAM_BEGIN) return AURORA_EFAULT;
+  address=user_physical(address);
   for (aurora_word_t i = 0u; i < count; ++i)
     kernel_telnet_putchar(aurora.Read(address + i));
   return (aurora_status_t)count;

@@ -54,6 +54,7 @@ foreach ($item in $entries) {
   $meta = Get-Content -LiteralPath ([IO.Path]::ChangeExtension($hex, '.program.json')) -Raw | ConvertFrom-Json
   if ($meta.Format -ne 'AuroraExecutableSource' -or $meta.Version -ne 1 -or
       $meta.ABI -ne 3 -or $meta.SyscallGateway -ne 2 -or $meta.Startup -ne 'compiler-init' -or
+      $meta.UserBankWords -ne 4194304 -or
       $meta.HexSHA256 -ne (Get-FileHash -LiteralPath $hex -Algorithm SHA256).Hash) {
     throw "Unverified/stale executable metadata; rebuild $hex"
   }
@@ -93,7 +94,7 @@ foreach ($item in $entries) {
       $exe.Add($v)
     }
     $reserve = if ($item.ReserveWords) { [uint32]$item.ReserveWords } else { 2048 }
-    if ($reserve -lt $exe.Count -or $reserve -gt 4096) { throw "Text capacity must fit text and be <=4096: $source" }
+    if ($reserve -lt $exe.Count -or $reserve -gt 65536) { throw "Text capacity must fit text and be <=65536: $source" }
   } else { $type = 3 }
   if ([uint64]$image.Count + $reserve -gt $CapacityWords) { throw 'Storage image exceeds device capacity' }
   [uint64]$sum = 0

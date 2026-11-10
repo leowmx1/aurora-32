@@ -20,6 +20,7 @@ class StorageCPU(MidiDevice, GraphicsCPU):
         super().__init__(ROOT / 'user-programs/programs/calculator/build/calculator.bin', duration=120)
         self.image = image_words() if image is None else image
         self.rom = []  # UROM initially empty: must be loaded by real kernel code.
+        self.extra_rom={}
         self.writable = writable
         self.loaded_writes = 0
         self.cpu_urom_writes = 0
@@ -42,19 +43,26 @@ class StorageCPU(MidiDevice, GraphicsCPU):
         self.tick_period = self.next_tick = 3001
         self.key_period = self.next_key = 4001
 
+    def urom_read(self, i):
+        if i>=0x400000: return self.extra_rom.get(i,0)
+        return self.rom[i] if i<len(self.rom) else 0
+
+    def urom_write(self, i, value):
+        if i>=0x400000: self.extra_rom[i]=value; return
+        if i>=len(self.rom): self.rom.extend([0]*(i+1-len(self.rom)))
+        self.rom[i]=value
+
     def dma_complete(self):
         if self.dma_deadline is None or self.steps < self.dma_deadline or self.dma_stuck:
             return
         origin, target, words = self.dma_jobs[-1]
         self.loaded_writes += words
         if self.writable:
-            if target + words > len(self.rom):
-                self.rom.extend([0] * (target + words - len(self.rom)))
             for i in range(words):
-                self.rom[target+i] = self.image[origin+i] if origin+i < len(self.image) else 0
-            if self.dma_corrupt: self.rom[target+words-1] ^= 1
+                self.urom_write(target+i,self.image[origin+i] if origin+i < len(self.image) else 0)
+            if self.dma_corrupt: self.urom_write(target+words-1,self.urom_read(target+words-1)^1)
         # Hardware sums actual destination readback, including failed writes.
-        self.dma_sum = (self.dma_sum + sum(self.rom[target:target+words])) & 0xffffffff
+        self.dma_sum = (self.dma_sum + sum(self.urom_read(i) for i in range(target,target+words))) & 0xffffffff
         if self.dma_sum_fault: self.dma_sum ^= 1
         self.dma_deadline = None
 
@@ -75,8 +83,8 @@ class StorageCPU(MidiDevice, GraphicsCPU):
         if 0x80000000 <= address < 0x81000000:
             assert self.dma_deadline is None, 'CPU read UROM before DMA finished'
             self.cpu_urom_reads += 1
-            i = address - 0x80000000
-            return self.rom[i] if i < len(self.rom) else 0
+            if not self.kernel_mode: address=self.user_address(address)
+            return self.urom_read(address - 0x80000000)
         return super().read(address)
 
     def write(self, address, value):
@@ -117,10 +125,9 @@ class StorageCPU(MidiDevice, GraphicsCPU):
             self.cpu_urom_writes += 1
             if self.writable:
                 i = address - 0x80000000
-                if i >= len(self.rom): self.rom.extend([0] * (i + 1 - len(self.rom)))
-                self.rom[i] = value & 0xffffffff
+                self.urom_write(i,value & 0xffffffff)
             return
-        if address == 0x09000009 and value == 0 and self.deadline is not None:
+        if address == 0x09900000 and value == 0 and self.deadline is not None:
             self.deadline = None  # stop/abort drawing during process cleanup
         super().write(address, value)
 
@@ -132,10 +139,11 @@ class StorageCPU(MidiDevice, GraphicsCPU):
     def step(self):
         # Exit/kill abandon callbacks. A prompt in the OTHER terminal must not
         # discard a still-running user's context-check bookkeeping.
-        if self.pc == self.entries['finish_user_exit']:
-            self.keyboard_entry = self.telnet_entry = 0
-            self.callback_inflight = self.restoring = False
-            self.snapshots.clear()
+        if self.pc == self.entries['finish_process_exit']:
+            bank=self.r[0]-1
+            self.bank_callbacks[bank]=dict(telnet_entry=0,keyboard_entry=0,callback_inflight=False)
+            self.bank_restoring[bank]=False
+            self.bank_snapshots[bank].clear()
         super().step()
 
     def syscall(self):
@@ -211,7 +219,8 @@ def integration():
 
 
 def rejection():
-    for kind in ('blank', 'dir-range', 'duplicate', 'checksum', 'abi', 'segment-range', 'entry', 'overlap', 'urom-readonly'):
+    for kind in ('blank', 'dir-range', 'duplicate', 'checksum', 'abi', 'segment-range',
+                 'bank-code-range', 'bank-code-cross', 'entry', 'overlap', 'urom-readonly'):
         words = image_words()
         offset = words[17]
         if kind == 'blank': words = []
@@ -220,12 +229,18 @@ def rejection():
         elif kind == 'checksum': words[offset + 22 + 10] ^= 1
         elif kind == 'abi': words[offset + 6] = 999
         elif kind == 'segment-range': words[offset + 16] = 0x01000000
+        elif kind == 'bank-code-range':
+            words[offset + 4] = words[offset + 16] = 0x80400000
+        elif kind == 'bank-code-cross':
+            words[offset + 4] = words[offset + 16] = 0x803fffff
         elif kind == 'entry': words[offset + 4] = 0x81000000
         elif kind == 'overlap': words[57] = words[17]
-        if kind in ('abi', 'segment-range', 'entry'):
+        if kind in ('abi', 'segment-range', 'bank-code-range', 'bank-code-cross', 'entry'):
             words[19] = sum(words[offset:offset + words[18]]) & 0xffffffff
         cpu = StorageCPU(words, writable=kind != 'urom-readonly')
+        cpu.memory_bank = 3  # Kernel must initialize bank 0, even after a warm reset.
         cpu.until(lambda: cpu.prompt_count == 1)
+        assert cpu.memory_bank == 0
         cpu.command_done('calculator')
         assert cpu.user_steps == 0
         if kind not in ('urom-readonly','checksum'): assert cpu.loaded_writes == 0

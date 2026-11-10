@@ -10,7 +10,7 @@ __aurora_system_put_char(char character) {
                         (aurora_word_t)(unsigned int)character, 0, 0);
 }
 
-/* Non-blocking: returns 0..255, or AURORA_EAGAIN if no key is queued. */
+/* Foreground only. Non-blocking: 0..255 or EAGAIN; background returns EBUSY. */
 static __inline__ __attribute__((always_inline)) aurora_status_t
 __aurora_system_get_char(void) {
   return aurora_syscall(AURORA_SYSCALL_KEYBOARD_NEXT, 0, 0, 0);
@@ -63,7 +63,9 @@ __aurora_telnet_write(const aurora_word_t *text, aurora_word_t count) {
 
 #include "aurora_buffer.h"
 
-/* Asynchronous submission; no implicit clear, clipping or retry. Validate
+/* Asynchronous submission; one process owns the screen until exit. Another
+ * owner's requests fail with EPERM; SYSTEM's temporary renderer returns EBUSY.
+ * No implicit clear, clipping or retry. Validate
  * before packing so negative/large coordinates cannot wrap into valid ones.
  * The kernel independently validates the raw syscall arguments too. */
 static __inline__ __attribute__((always_inline)) aurora_status_t
@@ -75,8 +77,8 @@ __aurora_graphics_fill_rect(aurora_word_t x, aurora_word_t y,
   if (width == 0u || height == 0u ||
       width > AURORA_GRAPHICS_WIDTH - x ||
       height > AURORA_GRAPHICS_HEIGHT - y) return AURORA_EINVAL;
-  return aurora_syscall(AURORA_SYSCALL_GRAPHICS_FILL_RECT,
-                        x + y * 256u, width + height * 256u, color);
+  return aurora_syscall(AURORA_SYSCALL_GRAPHICS_RECT16,
+                        x + y * 65536u, width + height * 65536u, color);
 }
 
 static __inline__ __attribute__((always_inline)) aurora_status_t
@@ -98,6 +100,16 @@ __aurora_graphics_bitmap_transparent(const aurora_graphics_bitmap *bitmap) {
                         (aurora_word_t)(unsigned long)bitmap, 2u, 0u);
 }
 
+static __inline__ __attribute__((always_inline)) aurora_status_t
+__aurora_graphics_image(const aurora_graphics_image *image) {
+  return aurora_syscall(AURORA_SYSCALL_GRAPHICS_IMAGE,
+                        (aurora_word_t)(unsigned long)image,1u,0u);
+}
+static __inline__ __attribute__((always_inline)) aurora_status_t
+__aurora_graphics_image_transparent(const aurora_graphics_image *image) {
+  return aurora_syscall(AURORA_SYSCALL_GRAPHICS_IMAGE,
+                        (aurora_word_t)(unsigned long)image,2u,0u);
+}
 typedef struct aurora_system_graphics_api {
   aurora_status_t (*FillRect)(aurora_word_t x, aurora_word_t y,
                               aurora_word_t width, aurora_word_t height,
@@ -105,6 +117,8 @@ typedef struct aurora_system_graphics_api {
   aurora_status_t (*Busy)(void);
   aurora_status_t (*Bitmap)(const aurora_graphics_bitmap *bitmap);
   aurora_status_t (*BitmapTransparent)(const aurora_graphics_bitmap *bitmap);
+  aurora_status_t (*Image)(const aurora_graphics_image *image);
+  aurora_status_t (*ImageTransparent)(const aurora_graphics_image *image);
 } aurora_system_graphics_api;
 
 /* Non-blocking musical commands, not audio samples. Duration is controlled
@@ -154,6 +168,9 @@ AURORA_SYSTEM_EVENT_WRAPPER(__aurora_wait_event, AURORA_SYSCALL_WAIT_EVENT)
 AURORA_SYSTEM_EVENT_WRAPPER(__aurora_yield, AURORA_SYSCALL_YIELD)
 AURORA_SYSTEM_EVENT_WRAPPER(__aurora_defer_events, AURORA_SYSCALL_DEFER_EVENTS)
 AURORA_SYSTEM_EVENT_WRAPPER(__aurora_resume_events, AURORA_SYSCALL_RESUME_EVENTS)
+/* Releases foreground input/subscription, keeps execution and output port.
+ * No migration/reload. Idempotent for an already-background process. */
+AURORA_SYSTEM_EVENT_WRAPPER(__aurora_background, AURORA_SYSCALL_BACKGROUND)
 #undef AURORA_SYSTEM_EVENT_WRAPPER
 /* An event may return early; recompute deadlines after each wake. No subscription
  * required. Like WaitEvent, forbidden inside callbacks/deferred regions.
@@ -200,6 +217,7 @@ typedef struct aurora_system_api {
   aurora_system_midi_api midi;
   aurora_status_t (*Sleep)(aurora_word_t ms);
   aurora_system_fs_api fs;
+  aurora_status_t (*Background)(void);
 } aurora_system_api;
 
 static const aurora_system_api system = {{
@@ -216,10 +234,12 @@ static const aurora_system_api system = {{
 __aurora_wait_event, __aurora_yield, __aurora_event_drops,
 __aurora_defer_events, __aurora_resume_events,
 {__aurora_graphics_fill_rect, __aurora_graphics_busy,
- __aurora_graphics_bitmap, __aurora_graphics_bitmap_transparent},
+ __aurora_graphics_bitmap, __aurora_graphics_bitmap_transparent,
+ __aurora_graphics_image, __aurora_graphics_image_transparent},
 {__aurora_midi_note_on, __aurora_midi_note_off,
  __aurora_midi_program, __aurora_midi_all_notes_off,
  __aurora_midi_sequence, __aurora_midi_sequence_busy}, __aurora_sleep,
- {__aurora_fs_open,__aurora_fs_list,__aurora_fs_info,__aurora_fs_read,__aurora_fs_save}};
+ {__aurora_fs_open,__aurora_fs_list,__aurora_fs_info,__aurora_fs_read,__aurora_fs_save,__aurora_fs_install},
+ __aurora_background};
 
 #endif

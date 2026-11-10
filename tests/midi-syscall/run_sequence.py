@@ -46,7 +46,9 @@ def run(duration, offset):
     if duration:
         assert any(first < t < first+duration for n,v,t in presses[1:]), 'no audio while drawing'
     cpu.inject.append((1, ord('q')))
-    cpu.until(lambda: cpu.halted)
+    # Normal shutdown submits a full-screen black fill, so allow its entire
+    # modeled duration plus syscall/cleanup/logging work before HALT.
+    cpu.until(lambda: cpu.halted, limit=duration+500000)
     assert 'SEQUENCE PASS' in cpu.output and not cpu.midi_active, cpu.output
     assert cpu.restores == 2 and not cpu.snapshots
     print(f'PASS sequence: tick-only playback, frozen-position resume, fixed deadlines, copied data, validation; draw={duration}, offset={offset:#x}')

@@ -1,5 +1,5 @@
 param(
-  [ValidateSet('all', 'calculator', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'txt-viewer', 'tetris')]
+  [ValidateSet('all', 'calculator', 'gomoku-screen', 'guess-number', 'snake-screen', 'maze-screen', 'editor', 'tetris', 'compiler', 'process-demo')]
   [string]$Program = 'all'
 )
 $ErrorActionPreference = 'Stop'

@@ -8,8 +8,17 @@
     { "Name": "maze", "Hex": "../user-programs/programs/maze-screen/build/maze-screen.hex" },
     { "Name": "gomoku", "Hex": "../user-programs/programs/gomoku-screen/build/gomoku-screen.hex" },
     { "Name": "tetris", "Hex": "../user-programs/programs/tetris/build/tetris.hex" },
-    { "Name": "txt-viewer", "Hex": "../user-programs/programs/txt-viewer/build/editor.hex" },
+    { "Name": "editor", "Hex": "../user-programs/programs/editor/build/editor.hex" },
+    { "Name": "compiler", "Hex": "../user-programs/programs/compiler/build/compiler.hex" },
+    { "Name": "process-demo", "Hex": "../user-programs/programs/process-demo/build/process-demo.hex" },
     { "Name": "docs/welcome.txt", "Type": "Text", "Source": "texts/welcome.txt", "ReserveWords": 2048 },
-    { "Name": "docs/notes.txt", "Type": "Text", "Source": "texts/notes.txt", "ReserveWords": 2048 }
+    { "Name": "docs/notes.txt", "Type": "Text", "Source": "texts/notes.txt", "ReserveWords": 2048 },
+    { "Name": "tinyc/hello.c", "Type": "Text", "Source": "texts/hello.c", "ReserveWords": 2048 },
+    { "Name": "tinyc/keys.c", "Type": "Text", "Source": "texts/keys.c", "ReserveWords": 2048 },
+    { "Name": "tinyc/recursion.c", "Type": "Text", "Source": "texts/recursion.c", "ReserveWords": 2048 },
+    { "Name": "tinyc/arrays.c", "Type": "Text", "Source": "texts/arrays.c", "ReserveWords": 2048 },
+    { "Name": "tinyc/pointers.c", "Type": "Text", "Source": "texts/pointers.c", "ReserveWords": 2048 },
+    { "Name": "tinyc/readme.txt", "Type": "Text", "Source": "texts/tinyc-readme.txt", "ReserveWords": 2048 },
+    { "Name": "tinyc/compiler.c", "Type": "Text", "Source": "../user-programs/programs/compiler/compiler.c", "ReserveWords": 65536 }
   ]
 }

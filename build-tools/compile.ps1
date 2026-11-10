@@ -30,7 +30,7 @@ Write-Output "Compiling $Mode image: $source"
 & $clang @arguments -S $source -o $assembly
 if ($LASTEXITCODE -ne 0) { throw "Assembly generation failed: $source" }
 if ($Mode -eq 'user') {
-  $privileged = Select-String -LiteralPath $assembly -Pattern '^\s*(ei|di|halt|iret|pushu|popu)(\s|$)'
+  $privileged = Select-String -LiteralPath $assembly -Pattern '^\s*(ei|di|halt|iret|pushu|popu|lusp|lufp|ousp|oufp)(\s|$)'
   if ($privileged) { throw "User image contains privileged instructions: $($privileged[0])" }
 }
 & $clang @arguments -c $source -o $object
@@ -47,9 +47,11 @@ $bytes = [IO.File]::ReadAllBytes($binary)
 if ($bytes.Length -lt 8 -or ($bytes.Length % 4) -ne 0 -or
     [BitConverter]::ToUInt32($bytes, 0) -ne 0x30) { throw "Invalid ROM entry in $binary" }
 $base = [uint64]0
-if ($Mode -eq 'user') { $base = [uint64]2147483648 }
+$regionWords = [uint64]16777216
+if ($Mode -eq 'user') { $base = [uint64]2147483648; $regionWords = [uint64]4194304 }
 $entry = [uint64][BitConverter]::ToUInt32($bytes, 4)
-if ($entry -lt $base -or $entry -ge ($base + [uint64]16777216) -or
+if (($bytes.Length / 4) -gt $regionWords -or
+    $entry -lt $base -or $entry -ge ($base + $regionWords) -or
     (($entry - $base) * 4) -ge $bytes.Length) { throw "Entry outside generated $Mode image" }
 & (Join-Path $PSScriptRoot 'bin-to-logisim.ps1') -InputFile $binary -OutputFile $hex | Out-Null
 if ((Get-Content -LiteralPath $hex -TotalCount 1) -ne 'v2.0 raw') { throw 'Bad HEX header' }
@@ -65,7 +67,7 @@ if ($Mode -eq 'user') {
     throw 'Storage executables require the stable kernel gateway at ROM word 2'
   }
   $metadata = [ordered]@{ Format='AuroraExecutableSource'; Version=1; ABI=3;
-    SyscallGateway=2; Startup='compiler-init'; Words=($bytes.Length / 4);
+    SyscallGateway=2; Startup='compiler-init'; UserBankWords=4194304; Words=($bytes.Length / 4);
     HexSHA256=(Get-FileHash -LiteralPath $hex -Algorithm SHA256).Hash }
   [IO.File]::WriteAllText([IO.Path]::ChangeExtension($hex, '.program.json'),
     ($metadata | ConvertTo-Json) + "`n", (New-Object Text.UTF8Encoding($false)))

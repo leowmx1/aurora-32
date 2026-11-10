@@ -1,7 +1,7 @@
 # 用户程序总览
 
 这里的示例运行于用户态，依赖同一版本的 `kernel/kernel.c` 和用户 ABI。
-当前有七个源程序、七个构建目标：
+当前有九个用户程序、九个构建目标：
 
 | 构建名称 | 源文件（相对根目录） | 交互与结束方式 |
 |---|---|---|
@@ -11,7 +11,9 @@
 | `snake-screen` | `user-programs/programs/snake-screen/snake_screen.c` | 同规则显存版，差量矩形绘图；[说明](snake-screen/README.md) |
 | `maze-screen` | `user-programs/programs/maze-screen/maze_screen.c` | 随机迷宫显存版，仅局部更新人物；[说明](maze-screen/README.md) |
 | `tetris` | `user-programs/programs/tetris/tetris.c` | 4 像素格、10×20 俄罗斯方块；[说明](tetris/README.md) |
-| `txt-viewer` | `user-programs/programs/txt-viewer/txt_viewer.c` | 目录浏览、文本查看与行编辑、保存；[说明](txt-viewer/README.md) |
+| `editor` | `user-programs/programs/editor/editor.c` | 目录浏览、文本查看与行编辑、保存；[说明](editor/README.md) |
+| `compiler` | `user-programs/programs/compiler/compiler.c` | 机内原生 Tiny C 编译器，支持自举；[说明](compiler/README.md) |
+| `process-demo` | `user-programs/programs/process-demo/process_demo.c` | 可后台运行的休眠计时任务；[说明](process-demo/README.md) |
 
 早期脚本中列出的 `keyboard-client`、`hello-loop`、`system-io-demo` 已不在当前
 项目源文件中；它们不是本次可构建的示例，不会生成占位 HEX。
@@ -94,6 +96,7 @@ __attribute__((noreturn)) void _start(void) {
 | `system.io.Subscribe(callback)` | 注册键盘回调；0 取消；替换/取消时清除该来源的旧待投递事件 |
 | `system.telnet.Subscribe(callback)` | 原始 Telnet 接口停用，返回 EBUSY；远程输入改用 system.io.Subscribe |
 | `system.WaitEvent()` | 无待处理事件/唤醒记号时阻塞；等待期间 tick 跳过用户；回调内或暂缓区内返回 EBUSY |
+| `system.Background()` | 主动释放所属终端前台，保留槽位/银行/现场继续运行；取消输入订阅；后台配额满或回调/暂缓区内返回 EBUSY |
 | `system.Yield()` | 立即让给系统进程但保持可运行；系统空闲可以立即切回，不是定时睡眠 |
 | `system.EventDrops()` | 订阅事件 FIFO 满时丢弃的新事件累计数，unsigned、模 2^32 |
 | `system.DeferEvents()` | 嵌套计数加一，暂缓回调投递；硬件 IRQ 和 tick 保持正常 |
@@ -123,6 +126,9 @@ WaitEvent 使用合并的唤醒记号，避免事件刚在调用前回调完成�
 
 当前字符串检查不包含 UStack，因此不能假定任意栈上临时字符串都能传给
 `PutString`；现有示例使用由后端分配到合法用户区的字符串。
+后台进程的上述终端输出由内核静默丢弃，本地/远程规则一致；有效请求返回正常成功值，
+Write 仍返回 count，缓冲 Flush 也可正常完成。参数错误仍返回错误，不缓存输出。
+内核报告的退出码、进程名和槽位等通知不受影响；需要查看程序进度/错误时请保持前台运行。
 新增可写文本缓冲区建议每字符用一个 `int`，当前 `char` 窄存储支持仍不完整。
 `aurora_system.h` 提供 `system.io.buffer` 专用缓冲输出接口和 `aurora_io_buffer` 类型。
 贪吃蛇、迷宫和迷你终端使用此缓冲接口；缓冲区应为 static/全局变量，不要放在局部栈上。
@@ -155,5 +161,5 @@ Begin 重置待输出计数和错误，不清屏，也不自动提交旧内容�
 具体输入格式、错误和容量见各程序 README。
 
 图形示例：[屏幕迷宫](maze-screen/README.md)、[屏幕五子棋](gomoku-screen/README.md)。
-终端说明：[本地/远程系统终端](../kernel/remote-console.md)；用户文本示例：[txt-viewer](txt-viewer/README.md)。
+终端说明：[本地/远程系统终端](../kernel/remote-console.md)；用户文本示例：[editor](editor/README.md)。
 这些程序使用内核 FIFO 和普通业务回调，不依赖贪吃蛇的游戏代码。

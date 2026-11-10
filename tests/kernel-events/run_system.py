@@ -15,6 +15,7 @@ class SystemCPU(CPU):
         self.kernel_mode = True
         self.stack = [0, 0]
         self.frame_pointer = [0, 0]
+        self.memory_bank = 0
         super().__init__(user, frames)
         data = pathlib.Path(kernel).read_bytes()
         self.kernel_rom = struct.unpack('<' + 'I' * (len(data) // 4), data)
@@ -44,6 +45,11 @@ class SystemCPU(CPU):
         self.frame_pointer[int(self.kernel_mode)] = value
 
     def read(self, address):
+        if not self.kernel_mode and 0x80000000 <= address < 0x83000000:
+            address=self.user_address(address)
+        if address == 0x0d000000:
+            assert self.kernel_mode
+            return self.memory_bank
         if address < len(self.kernel_rom):
             return self.kernel_rom[address]
         if address == 0x04000000:
@@ -57,12 +63,20 @@ class SystemCPU(CPU):
         return super().read(address)
 
     def write(self, address, value):
-        if address == 0x05000000:
+        if not self.kernel_mode and 0x80000000 <= address < 0x83000000:
+            address=self.user_address(address)
+        if address == 0x0d000000:
+            assert self.kernel_mode
+            self.memory_bank = value & 3
+        elif address == 0x05000000:
             self.emit(chr(value & 255))
         elif 0x01000000 <= address < 0x04000000:
             self.mem[address] = value & MASK
         else:
             super().write(address, value)
+
+    def user_address(self, address):
+        return (address & 0xff000000) | (self.memory_bank << 22) | (address & 0x3fffff)
 
     def emit(self, text):
         if '\f' in text:
@@ -96,6 +110,20 @@ class SystemCPU(CPU):
                 self.keys += 1
         word = self.read(self.pc)
         op = word & 255
+        if op in (0x62, 0x63, 0x64, 0x65):
+            # Contract check, not a model of the hardware exception sequence.
+            assert self.kernel_mode, 'privileged user-pointer instruction'
+            if op == 0x62:
+                self.stack[0] = self.r[(word >> 16) & 15]
+            elif op == 0x63:
+                self.frame_pointer[0] = self.r[(word >> 16) & 15]
+            elif op == 0x64:
+                self.r[(word >> 8) & 15] = self.stack[0]
+            else:
+                self.r[(word >> 8) & 15] = self.frame_pointer[0]
+            self.steps += 1
+            self.pc += 1
+            return
         if op in (0x39, 0x3a, 0x3b, 0x60, 0x61, 0xf0):
             self.steps += 1
             self.pc += 1
@@ -111,6 +139,8 @@ class SystemCPU(CPU):
             elif op == 0x3b:
                 self.ie = False
             elif op == 0x60:
+                # Current microcode selects USP without clearing KernelMode.
+                # The memory-bank mux therefore takes the physical address.
                 self.write(self.stack[0], self.r[(word >> 16) & 15])
                 self.stack[0] += 1
             elif op == 0x61:

@@ -1,4 +1,4 @@
-# Text Viewer / Editor
+# Editor
 
 运行于用户态，通过 `system.fs` 访问 EEPROM；不直接访问 B 段。键盘采用内核事件队列派发的
 回调，主循环使用 `system.WaitEvent()` 休眠。普通编辑只改变用户内存，只有 `save` 才写 EEPROM。
@@ -10,8 +10,8 @@
 ```
 
 ROM 加载 `kernel/build/kernel.hex`，B 段加载 `storage/build/storage.hex`，
-启动后执行 `run txt-viewer`，或对可信镜像执行 `quickrun txt-viewer`。
-单独重建可用 `.\user-programs\build.ps1 -Program txt-viewer`，之后重新打包存储。
+启动后执行 `run editor`，或对可信镜像执行 `quickrun editor`。
+单独重建可用 `.\user-programs\build.ps1 -Program editor`，之后重新打包存储。
 
 ## 命令
 
@@ -40,9 +40,9 @@ save
 q
 ```
 
-`txt* >` 表示有未保存修改。存在未保存修改时不能打开另一文件，需要先保存或放弃。
+`editor* >` 表示有未保存修改。存在未保存修改时不能打开另一文件，需要先保存或放弃。
 Backspace/Delete 删除输入的最后一个字符，Esc 放弃当前命令；输入支持 CR/LF/CRLF。
-命令上限 159 字符，超长整条命令丢弃。文本最多 4096 字符，还受文件预留容量限制；
+命令上限 159 字符，超长整条命令丢弃。文本最多 65536 字符，还受文件预留容量限制；
 `touch` 新建文件和示例文本默认预留 2048 字。无法保存时保留草稿并打印错误码。
 当前是 ASCII 行编辑器，不是全屏编辑器，不支持 Unicode、光标定位和撤销。
 路径始终相对根目录，可加开头 `/`；没有 `cd`，不支持 `.`/`..`。
@@ -63,8 +63,16 @@ Backspace/Delete 删除输入的最后一个字符，Esc 放弃当前命令；�
 ## 输出与双终端
 
 正文、帮助和文件名均使用有界 `system.io.Write` 批次，最多 64 字，按键回显仍为单字符。
-两个 4096 字工作区使用 `.noinit`，不在每次启动清零；仅在有效长度内读写，重新进入不会显示旧草稿。
+两个 65536 字工作区使用 `.noinit`，不在每次启动清零；仅在有效长度内读写，重新进入不会显示旧草稿。
 程序从哪一端启动就在哪一端交互，另一端仍能使用系统终端。
 文件 ID 在本用户进程生存期间被保留，另一端 rm 已引用文件会返回 EBUSY，避免删除后 ID 复用。
 另一端执行文件命令时，文件系统调用可能返回 EBUSY；等待该命令结束后重试即可。
 `kill` 强制退出不会保存草稿。详见 [双终端](../../kernel/remote-console.md)。
+
+## 编辑机内程序
+
+`txt-viewer` 已更名为 `editor`，不再提供旧启动名。
+`open tinyc/compiler.c` 可以编辑机内编译器自身（打开时会显示全文，输出较长）。
+保存、退出后运行 `compiler`，输入源路径和一个新的输出文件名。
+编译自身时请使用 `compiler2` 等新名字；详细步骤见 [Tiny C](../compiler/README.md)。
+大文件保存仍是同步操作，期间可能暂时延迟输入，不具备断电事务保护。

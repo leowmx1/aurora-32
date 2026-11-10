@@ -9,6 +9,9 @@ enum { LDMA_ORIGIN=0x0c000000u, LDMA_TARGET=0x0c000001u,
        LDMA_SUM=0x0c000004u };
 __attribute__((noinline)) static aurora_word_t
 ldma_copy(aurora_word_t origin, aurora_word_t target, aurora_word_t words) {
+  /* Tick/input IRQs continue, but no user fetch or user Storage syscall may
+   * compete with the DMA bus. Only SYSTEM starts DMA, with a complete frame. */
+  user_dispatch_paused=1u;
   if (aurora.Read(LDMA_STATUS)) {
     kernel_boot_put_string("\nLDMA unexpectedly busy. Reset required.\n");
     kernel_shutdown();
@@ -19,7 +22,7 @@ ldma_copy(aurora_word_t origin, aurora_word_t target, aurora_word_t words) {
   aurora.Write(LDMA_SUM,0u);
   aurora_word_t start=aurora.Read(AURORA_TIMER_DEVICE), polls=0u;
   aurora.Write(LDMA_STATUS,1u);
-  /* IRQs stay enabled: tick/keyboard/Telnet can run, but no USER exists yet.
+  /* IRQs stay enabled: tick/keyboard/Telnet can run; user dispatch is paused.
    * Do not read Storage or UROM until status becomes idle. */
   while(aurora.Read(LDMA_STATUS)) {
     if(aurora.Read(AURORA_TIMER_DEVICE)-start>=30000u || ++polls>=1000000u) {
@@ -29,6 +32,8 @@ ldma_copy(aurora_word_t origin, aurora_word_t target, aurora_word_t words) {
       kernel_shutdown();
     }
   }
-  return aurora.Read(LDMA_SUM);
+  aurora_word_t sum=aurora.Read(LDMA_SUM);
+  user_dispatch_paused=0u;
+  return sum;
 }
 #endif

@@ -10,9 +10,9 @@ __attribute__((noreturn)) void _start(void) {
   check(system.io.PutString((const char *)0)==AURORA_EFAULT,1);
   check(system.io.PutString((const char *)0x82000000u)==AURORA_EFAULT,2);
   check(system.io.Write(buffer,65u)==AURORA_EINVAL,3);
-  check(system.io.Write((const aurora_word_t *)0x81ffffffu,2u)==AURORA_EFAULT,4);
+  check(system.io.Write((const aurora_word_t *)0x813fffffu,2u)==AURORA_EFAULT,4);
   check(system.io.Write((const aurora_word_t *)0xffffffffu,0u)==0,5);
-  volatile aurora_word_t *last=(volatile aurora_word_t *)0x81ffffffu;
+  volatile aurora_word_t *last=(volatile aurora_word_t *)0x813fffffu;
   aurora_word_t saved=*last;
   *last=0u; check(system.io.PutString((const char *)last)==0,6);
   *last='X'; check(system.io.PutString((const char *)last)==AURORA_EFAULT,7);

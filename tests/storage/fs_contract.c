@@ -23,7 +23,7 @@ __attribute__((noreturn)) void _start(void) {
   check(system.fs.Read(&request)==0,8);
   request.offset=info.words+1u; check(system.fs.Read(&request)==AURORA_EINVAL,9);
   request.offset=0u; request.count=65u; check(system.fs.Read(&request)==AURORA_EINVAL,10);
-  request.count=2u; request.buffer=0x81ffffffu;
+  request.count=2u; request.buffer=0x813fffffu;
   check(system.fs.Read(&request)==AURORA_EFAULT,11);
   request.buffer=0x80000000u; check(system.fs.Read(&request)==AURORA_EFAULT,12);
   request.buffer=0x82000000u; check(system.fs.Read(&request)==AURORA_EFAULT,13);

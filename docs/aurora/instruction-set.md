@@ -86,12 +86,29 @@ RET 不能代替 IRET；普通用户回调执行 RET 是返回到用户跳板，
 | PUSHFP / POPFP | 46 / 47 | 无操作数 | 保存/恢复当前 FP |
 | LFP / OFP | 48 / 49 | `lfp a` / `ofp d` | 设置/读取当前 FP |
 | PUSHU / POPU | 60 / 61 | `pushu a` / `popu d` | 内核专用，临时使用 USP |
+| LUSP / LUFP | 62 / 63 | `lusp a` / `lufp a` | 内核专用，Ra 写入 USP / UFP |
+| OUSP / OUFP | 64 / 65 | `ousp d` / `oufp d` | 内核专用，将 USP / UFP 读到 Rw |
 | NOP | 00 | `nop` | 空操作 |
 | HALT | f0 | `halt` | 停机，仅内核使用 |
+
+当前保存的 PUSHU/POPU 微码通过 `Kernel Use USP` 选择用户栈指针，**不会清除 KernelMode**。
+因此访存仍是内核物理地址，不自动加用户银行偏移。向非零银行注入用户回调时，内核必须
+显式写入 `USP + bank_base`，然后 LUSP 更新逻辑指针；不能直接 PUSHU 逻辑 USP。
 
 通用三寄存器编码：Ra 在 [19:16]、Rb 在 [15:12]、Rw 在 [11:8]。
 未使用字段由具体指令形式确定。不要将源码中的 SELECT_CC_PSEUDO、FRAMEADDR 等
 编译器伪指令当成硬件 opcode，它们必须在发射前展开。
 
-用户构建会拒绝 EI、DI、HALT、IRET、PUSHU、POPU；其它指令的可用性仍受地址权限、
+LUSP/LUFP 使用 Ra=[19:16]，OUSP/OUFP 使用 Rw=[11:8]，均为单字指令。
+它们只操作用户指针，不切换模式、不改变 KSP/KFP、FLAGS 或 IE，也不读写栈内容。
+这是一份软硬件契约；指令模型通过不代表微码时序已经验证。
+
+内核 C 可使用 `aurora.SetUserStackPointer(value)`、`aurora.SetUserFramePointer(value)`、
+`aurora.GetUserStackPointer()` 和 `aurora.GetUserFramePointer()`。
+指针仍保存完整逻辑字地址（用户栈为 `0x82xxxxxx`），不是银行内偏移。
+完整的上下文切换还需保存寄存器/PC/FLAGS/内核栈、切换内存银行，并在整个过程中禁止中断。
+仅增加这些接口不会自动启用多用户进程。独立测试见
+[USP/UFP smoke test](../../tests/user-context/README.md)。
+
+用户构建会拒绝 EI、DI、HALT、IRET、PUSHU、POPU、LUSP、LUFP、OUSP、OUFP；其它指令的可用性仍受地址权限、
 电路用户微码和具体使用方式约束，不表示未被该静态检查列出的指令均可任意访问内核。

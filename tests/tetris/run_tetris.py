@@ -19,9 +19,13 @@ def logic():
 
 class TetrisCPU(StorageCPU):
     def __init__(self):
-        super().__init__(); self.frames=[]
+        super().__init__(); self.frames=[]; self.game_bank=0; self.game_steps=0
+    def step(self):
+        if not self.kernel_mode and self.memory_bank==self.game_bank:
+            self.game_steps+=1
+        super().step()
     def syscall(self):
-        if not self.kernel_mode and self.r[0] in (15,29):
+        if not self.kernel_mode and self.memory_bank==self.game_bank and self.r[0] in (15,29):
             assert self.deadline is None
             self.frames.append((self.screen[:],len(self.commands),self.r[0]))
         super().syscall()
@@ -30,21 +34,30 @@ class TetrisCPU(StorageCPU):
         self.pending.append(key)
         self.until(lambda:self.restores>restored and len(self.frames)>f,limit=2000000)
 
-def render():
+def render(background=False):
     c=TetrisCPU(); c.until(lambda:c.prompt_count==1)
+    if background:
+        c.command_done('process-demo &')
+        c.game_bank=1
+        c.frames.clear() # process-demo's Sleep is not a Tetris render frame
     c.pending.extend('quickrun tetris\r'); c.until(lambda:bool(c.frames),limit=8000000)
-    assert '4-pixel cells' in c.output
+    assert '11-pixel cells' in c.output
     game_start=len(c.commands)
-    # 4 active cells, 3x3 colored interiors, all gutters stay WELL.
+    # 4 active cells, exact 10x10 interiors, all 1-pixel gutters stay WELL.
     def blocks(pixels):
         return {(x,y) for y in range(20) for x in range(10)
-                if pixels[(8+4*y)*160+58+4*x]!=0x8864}
+                if pixels[(10+11*y)*480+185+11*x]!=0x8864}
     initial=blocks(c.frames[-1][0]); assert len(initial)==4
-    assert all(c.screen[(8+4*y+3)*160+58+4*x+3]==0x8864 for y in range(20) for x in range(10))
-    before=c.user_steps; end=c.steps+20000
-    c.until(lambda:c.steps>=end); stable=c.user_steps
+    for y in range(20):
+        for x in range(10):
+            px,py=185+11*x,10+11*y
+            color=c.screen[py*480+px]
+            assert all(c.screen[(py+dy)*480+px+dx]==color for dy in range(10) for dx in range(10))
+            assert all(c.screen[(py+k)*480+px+10]==0x8864 and c.screen[(py+10)*480+px+k]==0x8864 for k in range(11))
+    end=c.steps+20000
+    c.until(lambda:c.steps>=end); stable=c.game_steps
     end=c.steps+20000; c.until(lambda:c.steps>=end)
-    assert c.user_steps==stable,'waiting Tetris must block, not poll'
+    assert c.game_steps==stable,'waiting Tetris must block, not poll'
     c.press(' '); c.press('p')
     frozen=blocks(c.frames[-1][0]); n=len(c.commands)
     c.press('a'); assert blocks(c.frames[-1][0])==frozen and len(c.commands)==n
@@ -52,9 +65,10 @@ def render():
     assert len(blocks(c.frames[-1][0]))==4,'Space must rotate, not lock a piece'
     c.press('w')
     assert len(blocks(c.frames[-1][0]))>=8,'hard drop must leave a locked piece and spawn another'
-    assert not any(r[:4]==(0,0,160,100) for r in c.commands[game_start:]),'full redraw during play'
+    assert not any(r[:4]==(0,0,480,240) for r in c.commands[game_start:]),'full redraw during play'
     c.quit_key('q'); assert 'Tetris quit.' in c.output
+    assert 'Input queue overflow' not in c.output and 'context check failed' not in c.output
     assert c.ticks>0 and c.restores>=7
-    print('PASS Tetris graphics: 20 rows, small cells/gutters, no idle polling/full-frame redraw, input/tick, hard drop, exit',flush=True)
+    print(f'PASS Tetris bank={c.game_bank}: 20 rows, small cells/gutters, no idle polling/full-frame redraw, input/tick, hard drop, exit',flush=True)
 
-if __name__=='__main__': logic(); render()
+if __name__=='__main__': logic(); render(); render(background=True)

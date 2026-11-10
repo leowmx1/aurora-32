@@ -16,9 +16,20 @@ class CheckedCPU(DemoCPU):
         super().__init__('events', binary)
         self.entries = symbols()
         self.inject = deque()
+        self.bank_snapshots=[deque() for _ in range(4)]
+        self.bank_restoring=[False]*4
         self.snapshots = deque()
         self.restoring = False
         self.restores = self.user_steps = self.system_yields = 0
+
+    @property
+    def snapshots(self): return self.bank_snapshots[self.memory_bank]
+    @snapshots.setter
+    def snapshots(self,v): self.bank_snapshots[self.memory_bank]=v
+    @property
+    def restoring(self): return self.bank_restoring[self.memory_bank]
+    @restoring.setter
+    def restoring(self,v): self.bank_restoring[self.memory_bank]=v
 
     def syscall(self):
         if self.kernel_mode and self.r[0] == 4:

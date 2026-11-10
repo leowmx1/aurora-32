@@ -60,24 +60,23 @@ static void new_maze(unsigned int seed) {
 #define WALL 0xa1eeu
 #define MARKER 0xed27u
 
-/* Original 3x5 font, expanded 2x offline to 6x10 (60 bits).
- * Bit0 is top-left; each glyph is one opaque bitmap, including its background. */
-static const aurora_word_t font_bitmap[12][2] = {
-  {0xf3cf3fffu, 0x0fffcf3cu}, /* 0 */
-  {0x0c3cf30cu, 0x0fff30c3u}, /* 1 */
-  {0xffc30fffu, 0x0fff0c3fu}, /* 2 */
-  {0xffc30fffu, 0x0fffc30fu}, /* 3 */
-  {0xffcf3cf3u, 0x0c30c30fu}, /* 4 */
-  {0xff0c3fffu, 0x0fffc30fu}, /* 5 */
-  {0xff0c3fffu, 0x0fffcf3fu}, /* 6 */
-  {0x30c30fffu, 0x0c30c30cu}, /* 7 */
-  {0xffcf3fffu, 0x0fffcf3fu}, /* 8 */
-  {0xffcf3fffu, 0x0fffc30fu}, /* 9 */
-  {0xff0c3fffu, 0x0fffc30fu}, /* S */
-  {0x0c30cfffu, 0x030c30c3u}, /* T */
+/* Regular thin font rasterized at 12x16; no runtime scaling; bit0 is top-left. */
+static const aurora_word_t font_bitmap[12][6] = {
+  {0xf0000000u,0xc30c1980u,0x3643c430u,0x0c30c33cu,0x00f01983u,0x00000000u}, /* 0 */
+  {0x60000000u,0x006c0780u,0x06006006u,0x60060060u,0x03fc0600u,0x00000000u}, /* 1 */
+  {0xf8000000u,0x01801880u,0x18018018u,0x300600c0u,0x03fc0180u,0x00000000u}, /* 2 */
+  {0xf8000000u,0x01801800u,0x0f008018u,0x00300180u,0x00fc1803u,0x00000000u}, /* 3 */
+  {0xc0000000u,0x01a01e01u,0x1981981bu,0xfe18418cu,0x01801807u,0x00000000u}, /* 4 */
+  {0xf8000000u,0x80080081u,0x1800f800u,0x00300300u,0x007c1801u,0x00000000u}, /* 5 */
+  {0xe0000000u,0xc0180301u,0x31c1fc00u,0x0c30c30cu,0x00f01983u,0x00000000u}, /* 6 */
+  {0xfc000000u,0x01803003u,0x0c00c018u,0x30060060u,0x00180300u,0x00000000u}, /* 7 */
+  {0xf0000000u,0xc30c1980u,0x0f019810u,0x0c30c198u,0x00f838c3u,0x00000000u}, /* 8 */
+  {0xf0000000u,0xc10c1880u,0x38c30c30u,0x80100378u,0x00780c01u,0x00000000u}, /* 9 */
+  {0xf0000000u,0xc00c1180u,0x0f003800u,0x00300180u,0x00f81843u,0x00000000u}, /* S */
+  {0xfc000000u,0x00600603u,0x06006006u,0x60060060u,0x00600600u,0x00000000u}, /* T */
 };
 /* Single renderer owns this packet; callbacks do not nest. */
-static aurora_graphics_bitmap glyph_packet;
+static aurora_graphics_image glyph_packet;
 
 static void graphics_fail(int error) {
   system.io.PutString("Graphics error: ");
@@ -100,21 +99,22 @@ static void wait_graphics(void) {
   }
 }
 
-static void fill(int x, int y, int w, int h, aurora_word_t color) {
+static __inline__ __attribute__((always_inline)) void fill(int x, int y, int w, int h, aurora_word_t color) {
   wait_graphics();
+  if(x==0 && y==0 && w==160 && h==100) { w=480; h=240; }
+  else { w=(x+w)*12/5-x*12/5; h=(y+h)*12/5-y*12/5; x=48+x*12/5; y=y*12/5; }
   aurora_status_t result = system.graphics.FillRect(x, y, w, h, color);
   if (result != AURORA_OK) graphics_fail(result);
 }
 
 __attribute__((noinline, optnone)) static void draw_glyph(int x, int glyph) {
   wait_graphics();
-  glyph_packet.x = x; glyph_packet.y = 0;
-  glyph_packet.width = 6; glyph_packet.height = 10;
+  glyph_packet.x = 49+x*12/5; glyph_packet.y = 2;
+  glyph_packet.width=12; glyph_packet.height=16;
   glyph_packet.color = WALL;
   glyph_packet.background = BACKGROUND;
-  glyph_packet.data_low = font_bitmap[glyph][0];
-  glyph_packet.data_high = font_bitmap[glyph][1];
-  aurora_status_t result = system.graphics.Bitmap(&glyph_packet);
+  glyph_packet.data=font_bitmap[glyph]; glyph_packet.words=6u;
+  aurora_status_t result = system.graphics.Image(&glyph_packet);
   if (result != AURORA_OK) graphics_fail(result);
 }
 

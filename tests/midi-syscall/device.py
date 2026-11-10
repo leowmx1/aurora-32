@@ -11,12 +11,12 @@ class MidiDevice:
         super().__init__(*args, **kwargs)
 
     def read(self, address):
-        assert not 0x0b000000 <= address < 0x10000000, 'retired device segment read'
+        assert address == 0x0d000000 or not 0x0b000000 <= address < 0x10000000, 'retired device segment read'
         assert not MIDI_BASE <= address < MIDI_BASE + 0x01000000, 'MIDI is write-only'
         return super().read(address)
 
     def write(self, address, value):
-        assert not 0x0b000000 <= address < 0x10000000, 'retired device segment write'
+        assert address == 0x0d000000 or not 0x0b000000 <= address < 0x10000000, 'retired device segment write'
         if MIDI_BASE <= address < MIDI_BASE + 0x01000000:
             assert self.kernel_mode and not self.ie, 'MIDI must use kernel INT path'
             assert MIDI_BASE <= address < MIDI_BASE + 128, hex(address)

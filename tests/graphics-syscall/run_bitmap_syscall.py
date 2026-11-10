@@ -3,22 +3,22 @@ from run_graphics import GraphicsCPU, ROOT
 
 
 def expected_screen():
-    screen = [0] * 16000
+    screen = [0] * 115200
     def rect(x,y,w,h,c):
         for yy in range(y,y+h):
-            for xx in range(x,x+w): screen[yy*160+xx] = c
+            for xx in range(x,x+w): screen[yy*480+xx] = c
     rect(96,12,12,24,3)
     rect(108,12,12,24,5)
     rect(56,20,8,8,4)
     for y, width in enumerate((6,1,1,5,1,1,1,0)):
         for x in range(width):
-            screen[(20+y)*160+56+x] = 2
-            screen[(20+y)*160+104+x] = 2
+            screen[(20+y)*480+56+x] = 2
+            screen[(20+y)*480+104+x] = 2
     rect(16,56,8,4,2); rect(16,60,8,4,4)
     rect(40,56,8,4,4); rect(40,60,8,4,3)
-    for x,y in ((71,59),(64,60),(84,56),(88,62)): screen[y*160+x] = 1
+    for x,y in ((71,59),(64,60),(84,56),(88,62)): screen[y*480+x] = 1
     rect(96,56,24,16,3)
-    screen[99*160+159] = 2
+    screen[99*480+159] = 2
     return screen
 
 
@@ -33,7 +33,7 @@ def run():
         assert [op[-1] for op in cpu.exit_operations] == [0,0,0,1,2,2,1,1,1,1,0,2,1]
         assert len(cpu.exit_writes) == 4*8+9*11
         assert cpu.exit_screen == expected_screen(), 'pixel mismatch'
-        assert cpu.screen == [0x8000]*16000
+        assert cpu.screen == [0x8000]*115200
         if inject:
             assert cpu.injected_keys == cpu.restores == 13
             assert cpu.busy_ticks > 0 and cpu.user_yields > 0 and not cpu.snapshots

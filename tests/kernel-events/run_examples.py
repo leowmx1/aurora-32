@@ -22,6 +22,7 @@ class DemoCPU(SystemCPU):
         self.network_in = deque()
         self.network_word = 0
         self.network_reads = self.network_irqs = 0
+        self.bank_callbacks=[dict(telnet_entry=0,keyboard_entry=0,callback_inflight=False) for _ in range(4)]
         self.telnet_entry = 0
         self.keyboard_entry = 0
         self.callback_inflight = False
@@ -29,12 +30,25 @@ class DemoCPU(SystemCPU):
         self.delivered = []
         self.halted = False
 
+    @property
+    def keyboard_entry(self): return self.bank_callbacks[self.memory_bank]['keyboard_entry']
+    @keyboard_entry.setter
+    def keyboard_entry(self,v): self.bank_callbacks[self.memory_bank]['keyboard_entry']=v
+    @property
+    def telnet_entry(self): return self.bank_callbacks[self.memory_bank]['telnet_entry']
+    @telnet_entry.setter
+    def telnet_entry(self,v): self.bank_callbacks[self.memory_bank]['telnet_entry']=v
+    @property
+    def callback_inflight(self): return self.bank_callbacks[self.memory_bank]['callback_inflight']
+    @callback_inflight.setter
+    def callback_inflight(self,v): self.bank_callbacks[self.memory_bank]['callback_inflight']=v
+
     def emit(self, text):
         self.output += text
         assert 'Console Write failed' not in self.output
 
     def read(self, address):
-        if address == 0x09000009: return 0  # idle graphics in non-graphics tests
+        if address == 0x09900000: return 0  # idle graphics in non-graphics tests
         if address == 0x06000000:
             self.network_reads += 1
             return self.network_word
@@ -43,7 +57,7 @@ class DemoCPU(SystemCPU):
     def write(self, address, value):
         # Non-graphics tests model an immediately-complete shutdown fill.
         # GraphicsCPU overrides this range and checks all actual pixels/writes.
-        if 0x09000000 <= address <= 0x09000009:
+        if 0x09000000 <= address < 0x09a00000:
             assert self.kernel_mode and not self.ie
             return
         if address == 0x06000000:

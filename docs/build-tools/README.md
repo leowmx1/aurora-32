@@ -52,7 +52,7 @@ Clang 的前端和后端已集成在同一个 `clang.exe`，无需另一个所�
 ```
 
 根构建总会先编译内核。`-Program all` 为默认，还接受 calculator、gomoku-screen、guess-number、
-snake-screen、maze-screen、tetris、txt-viewer。calculator-trace、graphics-demo、mini-terminal 已移除。
+snake-screen、maze-screen、tetris、editor、compiler。calculator-trace、graphics-demo、mini-terminal 已移除。
 默认 all 在编译后自动执行 `pack-storage.ps1`；指定单个目标后需手动重新打包存储镜像。
 加载方式及自定义清单见 [存储说明](../kernel/storage.md)。只构建内核或使用现有内核对象：
 
@@ -110,10 +110,15 @@ resource dir 显式指定为本包的 `lib/clang/24`。用户模式另定义
 不能用它替代源码声明。
 
 1. clang `-S` 生成可检查的汇编。
-2. 用户汇编若包含 EI/DI/HALT/IRET/PUSHU/POPU 则拒绝构建。
+2. 用户汇编若包含 EI/DI/HALT/IRET/PUSHU/POPU/LUSP/LUFP/OUSP/OUFP 则拒绝构建。
 3. clang `-c` 生成对象；nm 检查未定义符号，readobj 检查未解决重定位。
 4. objcopy 提取 `.text`。检查长度按 4 字节对齐、首字为 JMP，以及入口落在生成镜像内。
 5. bin-to-logisim 输出无 BOM 的 `v2.0 raw` HEX，每个单元为一个 32 位字。
+
+用户代码最多 `2^22` 字，全局数据只分配到 `0x81000000–0x813fffff`，
+以适配四银行硬件。用户构建元数据包含 `UserBankWords=4194304`；pack-storage
+拒绝缺少此标记的旧产物。系统调用 ABI 仍为 3，但旧全局地址布局不兼容新银行硬件，
+因此需要重新构建用户程序并重新打包 storage，不能只替换内核。
 
 `.s` 是审查文件，`.o` 是对象和符号依据，`.bin` 是小端机器字字节序列，`.hex` 是
 加载到电路存储器的文本。四者不应互换；尤其不能把 ELF `.o` 直接加载进 ROM。

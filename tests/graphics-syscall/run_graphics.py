@@ -6,10 +6,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tests/kernel-events'))
 from run_events import CheckedCPU
 
-STATUS = 0x09000009
-REGS = [0x09000000, 0x09000001, 0x09000002, 0x09000003, 0x09000004]
-PARAMS = list(range(0x09000000, 0x09000009))
-MODE = 0x09000008
+STATUS = 0x09900000
+REGS = [0x09000000+i*0x100000 for i in range(5)]
+DATA = 0x09600000
+PARAMS = REGS+[0x09500000,DATA,DATA+1,0x09800000]
+MODE = 0x09800000
+WIDTH,HEIGHT=480,240
 RECTS = [(40, 25, 80, 50, 4), (5, 5, 25, 15, 2), (125, 80, 30, 15, 3)]
 
 
@@ -20,7 +22,9 @@ class GraphicsCPU(CheckedCPU):
         self.commands = []
         self.operations = []
         self.writes = []
-        self.screen = [-1] * 16000
+        self.screen = [-1] * (WIDTH*HEIGHT)
+        self.data_ram={}
+        self.image_bits=[]
         self.deadline = None
         self.duration = duration
         self.inject_keyboard = inject
@@ -34,19 +38,19 @@ class GraphicsCPU(CheckedCPU):
     def complete(self):
         if self.deadline is not None and self.steps >= self.deadline and not self.stuck:
             x, y, w, h, color, bg, low, high, mode = self.operations[-1]
-            bits = low | (high << 32)
+            bits = self.image_bits[-1]
             for row in range(y, y+h):
                 for col in range(x, x+w):
                     bit = (bits >> ((row-y)*w + col-x)) & 1
                     if mode == 0 or bit:
-                        self.screen[row*160+col] = color
+                        self.screen[row*WIDTH+col] = color
                     elif mode == 1:
-                        self.screen[row*160+col] = bg
+                        self.screen[row*WIDTH+col] = bg
             self.busy_ticks += self.ticks - self.ticks_at_start
             self.deadline = None
 
     def read(self, address):
-        assert not 0x0a000000 <= address < 0x10000000, 'retired graphics / write-only MIDI read'
+        assert address == 0x0d000000 or not 0x0a000000 <= address < 0x10000000, 'retired graphics / write-only MIDI read'
         if 0x09000000 <= address < 0x0a000000:
             assert address == STATUS, 'reserved or unexpected graphics register read'
         if address == STATUS:
@@ -57,11 +61,11 @@ class GraphicsCPU(CheckedCPU):
 
     def write(self, address, value):
         # MidiDevice handles valid 0x0A writes before reaching this layer.
-        assert not 0x0a000000 <= address < 0x10000000, 'retired graphics / unhandled MIDI write'
+        assert address == 0x0d000000 or not 0x0a000000 <= address < 0x10000000, 'retired graphics / unhandled MIDI write'
         if 0x09000000 <= address < 0x0a000000:
-            assert address in PARAMS or address == STATUS, 'unexpected graphics register'
+            assert address in PARAMS or address == STATUS or DATA<=address<DATA+3600, 'unexpected graphics register'
         assert address != 0x03000003, 'graphics IVT entry must not be installed'
-        if address in PARAMS or address == STATUS:
+        if address in PARAMS or address == STATUS or DATA<=address<DATA+3600:
             assert self.kernel_mode and not self.ie
             self.complete()
             if address == STATUS and value == 0:
@@ -70,19 +74,26 @@ class GraphicsCPU(CheckedCPU):
             self.writes.append((address, value))
             if address != STATUS:
                 self.params[address] = value
+                if DATA<=address<DATA+3600: self.data_ram[address-DATA]=value
             elif value == 1:
                 rect = tuple(self.params[r] for r in REGS)
                 x, y, w, h, color = rect
-                assert 0 <= x < 160 and 0 <= y < 100
-                assert 0 < w <= 160-x and 0 < h <= 100-y
+                assert 0 <= x < WIDTH and 0 <= y < HEIGHT
+                assert 0 < w <= WIDTH-x and 0 < h <= HEIGHT-y
                 mode = self.params[MODE]
                 assert mode in (0, 1, 2)
-                if mode: assert w*h <= 64
-                sequence = [STATUS] + (PARAMS if mode else REGS + [MODE]) + [STATUS]
+                # The complete transfer belongs to this job; no stale words
+                # or old low-four-bit register aliases are accepted.
+                last_stop=max(i for i,pair in enumerate(self.writes[:-1]) if pair==(STATUS,0))
+                actual=[a for a,v in self.writes[last_stop:]]
+                count=len(actual)-9 if mode else 0
+                if mode: assert count==(w*h+31)//32 or (w*h<=32 and count==2)
+                sequence = [STATUS] + (REGS+[0x09500000]+[DATA+i for i in range(count)]+[MODE] if mode else REGS + [MODE]) + [STATUS]
                 assert [a for a, v in self.writes[-len(sequence):]] == sequence
                 assert self.writes[-len(sequence)][1] == 0
                 self.commands.append(rect)
                 self.operations.append(tuple(self.params.get(r, 0) for r in PARAMS))
+                self.image_bits.append(sum(self.data_ram[i]<<(32*i) for i in range(count)) if mode else 0)
                 self.deadline = self.steps + self.duration
                 self.ticks_at_start = self.ticks
                 self.injected = False
@@ -130,16 +141,16 @@ def run():
         assert cpu.exit_commands == RECTS + [(56,40,8,8,2), (104,40,8,8,2), (56,52,8,2,3)]
         assert len(cpu.exit_writes) == 54
         assert 'Graphics complete:' in cpu.output and 'exited with code 0.' in cpu.output
-        expected = [-1]*16000
+        expected = [-1]*115200
         for x,y,w,h,c in RECTS + [(56,40,8,8,5), (56,52,8,2,3)]:
             for yy in range(y,y+h):
-                for xx in range(x,x+w): expected[yy*160+xx] = c
+                for xx in range(x,x+w): expected[yy*480+xx] = c
         for yy, width in enumerate((6,1,1,5,1,1,1,0)):
             for xx in range(width):
-                expected[(40+yy)*160+56+xx] = 2
-                expected[(40+yy)*160+104+xx] = 2
+                expected[(40+yy)*480+56+xx] = 2
+                expected[(40+yy)*480+104+xx] = 2
         assert cpu.exit_screen == expected
-        assert cpu.screen == [0x8000]*16000
+        assert cpu.screen == [0x8000]*115200
         assert cpu.restores == 0
         if duration: assert cpu.busy_ticks > 0 and cpu.user_yields > 0
         print(f'PASS demo: duration={duration}, preserved pixels, busy ticks={cpu.busy_ticks}')
@@ -148,11 +159,11 @@ def run():
     cpu.until(lambda: cpu.halted)
     assert 'GRAPHICS CONTRACT PASS' in cpu.output, cpu.output
     assert 'exited with code 0.' in cpu.output
-    assert cpu.exit_commands == [(0, 0, 160, 100, 0)] + RECTS + [(159, 99, 1, 1, 4)]
+    assert cpu.exit_commands == [(0, 0, 480, 240, 0)] + RECTS + [(479, 239, 1, 1, 4)]
     assert len(cpu.exit_writes) == 40 and cpu.injected_keys == 5 and cpu.busy_ticks > 0
     assert cpu.restores == 5 and not cpu.snapshots
     assert cpu.exit_screen.count(4) == 4001 and cpu.exit_screen.count(2) == 375
-    assert cpu.exit_screen.count(3) == 450 and cpu.exit_screen.count(0) == 11174
+    assert cpu.exit_screen.count(3) == 450 and cpu.exit_screen.count(0) == 110374
     print(f'PASS contract: wrapper/raw validation, no busy writes, 5 keyboard callbacks, {cpu.busy_ticks} busy ticks')
 
     cpu = GraphicsCPU(ROOT / 'tests/graphics-syscall/build/contract.bin', inject=True, stuck=True)

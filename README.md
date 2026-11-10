@@ -1,8 +1,8 @@
 # Aurora-32
 
 Aurora-32 是一个自定义 32 位、字寻址、微程序控制的 CPU 项目。项目包含电路、
-主/用户/中断微码、早期裸机示例、双进程内核、用户态终端与图形程序，以及配套的
-Windows x64 Clang/LLVM 工具快照。当前启动流程更新于 2026-11-01。
+主/用户/中断微码、早期裸机示例、四用户槽内核、用户态终端与图形程序，以及配套的
+Windows x64 Clang/LLVM 工具快照，以及机内可自举的 Tiny C 编译器。更新于 2026-11-03。
 
 > **不受支持、已弃用：** [deprecated-bare-metal/](deprecated-bare-metal/README.md)
 > 仅保留早期裸机源码供历史参考，不参与当前构建，不保证兼容现有 CPU、微码和内核。
@@ -56,7 +56,7 @@ Windows x64 Clang/LLVM 工具快照。当前启动流程更新于 2026-11-01。
 | `kernel/` | 内核源文件、构建入口、内核自己的 `build/` |
 | `storage/` | 程序清单、EEPROM 镜像及布局报告 `build/storage.hex/.json` |
 | `user-programs/include/` | 系统调用 ABI、用户回调封装、`system.io` |
-| `user-programs/programs/` | 计算器、五子棋、猜数字、贪吃蛇、迷宫、俄罗斯方块、文本编辑器及各自 `build/` |
+| `user-programs/programs/` | 计算器、五子棋、猜数字、贪吃蛇、迷宫、俄罗斯方块、编辑器、编译器及各自 `build/` |
 | `deprecated-bare-metal/` | **不受支持、已弃用**的裸机源码归档；旧编译产物已清理 |
 | `build-tools/` | 可直接用于本项目的编译工具、头文件、运行库、脚本 |
 | `docs/user_program/` | 每个用户示例的详细 README |
@@ -71,7 +71,8 @@ Windows x64 Clang/LLVM 工具快照。当前启动流程更新于 2026-11-01。
 - [屏幕版 5×5 五子棋](docs/user_program/gomoku-screen/README.md)
 - [猜数字](docs/user_program/guess-number/README.md)
 - [俄罗斯方块](docs/user_program/tetris/README.md)
-- [文本查看与编辑](docs/user_program/txt-viewer/README.md)
+- [文本查看与编辑](docs/user_program/editor/README.md)
+- [机内 Tiny C 编译器与自举](docs/user_program/compiler/README.md)
 - [本地/远程系统终端与 kill](docs/kernel/remote-console.md)
 - [屏幕版贪吃蛇](docs/user_program/snake-screen/README.md)
 - [屏幕版迷宫](docs/user_program/maze-screen/README.md)
@@ -85,10 +86,24 @@ Windows x64 Clang/LLVM 工具快照。当前启动流程更新于 2026-11-01。
 它执行编译产物的指令/设备模型测试，不替代 Digital 电路时序验证；详见
 [验证记录](docs/build-tools/verification.md)。正常构建不需要 Python。
 
+## 在 Aurora-32 上编写与编译程序
+
+`run editor` 编辑文本源码；`run compiler` 输入 `tinyc/arrays.c` 和新输出名 `sorted`，
+返回系统终端后 `run sorted`。`tinyc/` 中提供未编译的入门、键盘、递归、数组和指针示例。
+编译 `tinyc/compiler.c` 得到 `compiler2`，再运行 compiler2 编译同一源码得到 compiler3，
+即完成机内自举。它们都是用户态原生程序，不是解释执行；不能把完整 ISO C 或现有游戏源码
+直接交给 Tiny C。源文件、容量与运行库限制见 [详细说明](docs/user_program/compiler/README.md)。
+
+自举回归：`pypy3 tests/compiler/run_selfhost.py`（也可用 Python，但耗时更长）。
+全套测试可用 `tests/run-regression.ps1 -Python pypy3 -SelfHost`。
+
 ## 范围和限制
 
-目前 SYSTEM 同时服务本地/远程两个终端，仍至多一个用户进程，支持 ASFS2 子目录、文本编辑和固定地址程序加载。
-`quickrun` 可跳过校验和/装载后读回，`txt-viewer` 提供文本查看及行编辑；
+目前 SYSTEM 同时服务本地/远程两个终端，各支持一个前台和一个后台用户程序（共四槽）。
+后台用 `NAME &` 或 `run NAME &`；`ps` 查看槽位、银行、名称与状态，`kill SLOT` 终止指定槽。
+显存与 MIDI 各由一个进程独占。支持 ASFS2 子目录、文本编辑和银行隔离的固定逻辑地址程序加载。
+硬件要求和限制见 [多进程与用户银行](docs/kernel/user-banks.md)。
+`quickrun` 可跳过校验和结果比较（硬件仍读回），`editor` 提供文本查看及行编辑；
 `mv`/`rm` 只修改目录元数据，创建文件复用空洞。详见 [ASFS2](docs/kernel/filesystem-v2.md)。
 没有文件系统日志、断电事务保证、多个用户进程、MMU、重定位或通用 libc。
 程序正常退出回到所属端的 SYSTEM；另一端可执行系统命令或 kill，但不能启动第二个用户程序。

@@ -1,6 +1,6 @@
 # Screen Snake
 
-160×100 显存版贪吃蛇。原终端版 `snake` 已移除，现在使用 `snake-screen` 构建目标。
+480×240 显存版贪吃蛇。原终端版 `snake` 已移除，现在使用 `snake-screen` 构建目标。
 完整说明见 [docs/user_program/snake-screen/README.md](../../../docs/user_program/snake-screen/README.md)。
 
 ```powershell
@@ -9,7 +9,7 @@
 
 重新打包 `build-tools/pack-storage.ps1`，加载内核 ROM 和 EEPROM B 镜像；在系统终端输入 `snake`。
 不需要屏幕完成中断，只需要绘制完成后 busy 自动清零。
-文字使用预计算 6×10 双色位图，每字符一次系统调用，包含背景擦除；地图仍按矩形局部更新。
+文字使用预计算 12×16 双色位图，每字符一次系统调用，包含背景擦除；地图仍按矩形局部更新。
 需使用支持位图请求 28、Sleep 请求 29 的配套内核。
 运行中按下一步剩余时间 Sleep，键盘可提前唤醒；未开始/暂停时 WaitEvent。
 结束旋律期间每 20ms Sleep 后检查结束状态，绘图等待仍是 Busy/Yield。
